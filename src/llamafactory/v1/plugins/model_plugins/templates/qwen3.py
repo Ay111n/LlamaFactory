@@ -185,7 +185,7 @@ def render_qwen3_messages(
                     + "}\n</tool_call>"
                 )
 
-            temp_str += "<|im_end|>\n"
+            temp_str += "<|im_end|>\n"
             temp_weight = message.get("loss_weight", 1.0)
         elif message["role"] == "tool":
             if turn_idx == 0 or messages[turn_idx - 1]["role"] != "tool":

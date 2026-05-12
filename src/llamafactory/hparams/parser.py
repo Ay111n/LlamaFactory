@@ -33,7 +33,7 @@ from transformers.utils import is_torch_bf16_gpu_available, is_torch_npu_availab
 from ..extras import logging
 from ..extras.constants import CHECKPOINT_NAMES, EngineName
 from ..extras.misc import check_dependencies, check_version, get_current_device, is_env_enabled
-from ..extras.packages import is_mcore_adapter_available, is_transformers_version_greater_than
+from ..extras.packages import is_mcore_adapter_available
 from .data_args import DataArguments
 from .evaluation_args import EvaluationArguments
 from .finetuning_args import FinetuningArguments
@@ -192,7 +192,9 @@ def _check_extra_dependencies(
     training_args: Optional["TrainingArguments"] = None,
 ) -> None:
     if model_args.use_kt:
-        check_version("ktransformers", mandatory=True)
+        check_version("kt-kernel", mandatory=True)
+        check_version("transformers-kt", mandatory=True)
+        check_version("accelerate-kt", mandatory=True)
 
     if model_args.use_unsloth:
         check_version("unsloth", mandatory=True)
@@ -394,9 +396,6 @@ def get_train_args(args: dict[str, Any] | list[str] | None = None) -> _TRAIN_CLS
     if model_args.use_kt and is_deepspeed_zero3_enabled():
         raise ValueError("KTransformers is incompatible with DeepSpeed ZeRO-3.")
 
-    if data_args.neat_packing and is_transformers_version_greater_than("4.53.0"):
-        raise ValueError("Neat packing is incompatible with transformers>=4.53.0.")
-
     _set_env_vars()
     _verify_model_args(model_args, data_args, finetuning_args)
     _check_extra_dependencies(model_args, finetuning_args, training_args)
@@ -470,7 +469,7 @@ def get_train_args(args: dict[str, Any] | list[str] | None = None) -> _TRAIN_CLS
         training_args.resume_from_checkpoint is None
         and training_args.do_train
         and os.path.isdir(training_args.output_dir)
-        and not getattr(training_args, "overwrite_output_dir", False) # for mca training args and transformers >= 5.0
+        and not getattr(training_args, "overwrite_output_dir", False)  # for mca training args and transformers >= 5.0
         and can_resume_from_checkpoint
     ):
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
@@ -512,6 +511,9 @@ def get_train_args(args: dict[str, Any] | list[str] | None = None) -> _TRAIN_CLS
         f"compute dtype: {str(model_args.compute_dtype)}"
     )
     transformers.set_seed(training_args.seed)
+
+    if model_args.use_kt:
+        model_args.apply_kt_config(finetuning_args, training_args, model_args.model_max_length)
 
     return model_args, data_args, training_args, finetuning_args, generating_args
 

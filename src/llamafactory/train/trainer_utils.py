@@ -50,9 +50,9 @@ if is_apollo_available():
 
 if is_ray_available():
     import ray
-    from ray.util.state import list_nodes
     from ray.util.placement_group import PlacementGroup, placement_group
     from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
+    from ray.util.state import list_nodes
 
 
 if TYPE_CHECKING:
@@ -103,7 +103,7 @@ def create_modelcard_and_push(
         kwargs["tags"] = kwargs["tags"] + ["unsloth"]
 
     if model_args.use_kt:
-        kwargs["tags"] = kwargs["tags"] + ["ktransformers"]
+        kwargs["tags"] = kwargs["tags"] + ["kt-kernel"]
 
     if not training_args.do_train:
         pass

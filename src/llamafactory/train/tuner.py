@@ -24,7 +24,12 @@ from ..data import get_template_and_fix_tokenizer
 from ..extras import logging
 from ..extras.constants import V_HEAD_SAFE_WEIGHTS_NAME, V_HEAD_WEIGHTS_NAME
 from ..extras.misc import find_available_port, get_device_name, get_torch_device, infer_optim_dtype
-from ..extras.packages import is_mcore_adapter_available, is_ray_available, is_transformers_version_greater_than
+from ..extras.packages import (
+    is_hyper_parallel_available,
+    is_mcore_adapter_available,
+    is_ray_available,
+    is_transformers_version_greater_than,
+)
 from ..hparams import RayArguments, get_infer_args, get_ray_args, get_train_args, read_args
 from ..model import load_model, load_tokenizer
 from .callbacks import LogCallback, PissaConvertCallback, ReporterCallback
@@ -71,7 +76,14 @@ def _training_function(config: dict[str, Any]) -> None:
 
     callbacks.append(ReporterCallback(model_args, data_args, finetuning_args, generating_args))  # add to last
 
-    if finetuning_args.stage in ["pt", "sft", "dpo"] and finetuning_args.use_mca:
+    if finetuning_args.stage == "sft" and finetuning_args.use_hyper_parallel:
+        if not is_hyper_parallel_available():
+            raise ImportError("hyper_parallel is not installed. Please install it with `pip install hyper_parallel`.")
+        from .hyper_parallel import run_sft as run_sft_hp
+
+        run_sft_hp(model_args, data_args, training_args, finetuning_args, generating_args, callbacks)
+
+    elif finetuning_args.stage in ["pt", "sft", "dpo"] and finetuning_args.use_mca:
         if not is_mcore_adapter_available():
             raise ImportError("mcore_adapter is not installed. Please install it with `pip install mcore-adapter`.")
         if finetuning_args.stage == "pt":
@@ -168,7 +180,15 @@ def export_model(args: Optional[dict[str, Any]] = None) -> None:
     if not is_transformers_version_greater_than("5.0.0"):
         save_kwargs["safe_serialization"] = not model_args.export_legacy_format
 
-    model.save_pretrained(**save_kwargs)
+    try:
+        model.save_pretrained(**save_kwargs)
+    except NotImplementedError as err:
+        raise RuntimeError(
+            "Failed to export model: weight conversion reversal is not supported for this model architecture "
+            "(NotImplementedError in transformers.core_model_loading.reverse_op). "
+            "This is a known issue with transformers>=5.0 for certain model types (e.g. Mistral/Ministral). "
+            "Workarounds: (1) use transformers<5.0, or (2) report the issue to the transformers repository."
+        ) from err
 
     if model_args.export_hub_model_id is not None:
         # Prepare push arguments (safe_serialization removed in transformers v5.0.0)
