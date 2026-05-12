@@ -367,10 +367,35 @@ class OpenAIDatasetConverter(DatasetConverter):
         return output
 
 
+# 1. 新增 BWSA 转换器类
+@dataclass
+class BWSADatasetConverter(DatasetConverter):
+    def __call__(self, example: dict[str, Any]) -> dict[str, Any]:
+        # 组装英文对话
+        prompt_en = [{"role": Role.USER.value, "content": example[self.dataset_attr.prompt_en]}]
+        response_en = [{"role": Role.ASSISTANT.value, "content": example[self.dataset_attr.response_en]}]
+        
+        # 组装藏文对话
+        prompt_bo = [{"role": Role.USER.value, "content": example[self.dataset_attr.prompt_bo]}]
+        response_bo = [{"role": Role.ASSISTANT.value, "content": example[self.dataset_attr.response_bo]}]
+
+        return {
+            "_prompt_en": prompt_en,
+            "_response_en": response_en,
+            "_prompt_bo": prompt_bo,
+            "_response_bo": response_bo,
+            "_system": example.get(self.dataset_attr.system, "") if self.dataset_attr.system else "",
+            "_tools": "",
+            "_images": None, "_videos": None, "_audios": None
+        }
+
+
+# 2. 在文件末尾的字典中注册它
 DATASET_CONVERTERS = {
     "alpaca": AlpacaDatasetConverter,
     "sharegpt": SharegptDatasetConverter,
     "openai": OpenAIDatasetConverter,
+    "bwsa": BWSADatasetConverter,  # <- 增加这行
 }
 
 

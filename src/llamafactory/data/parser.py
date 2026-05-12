@@ -30,7 +30,8 @@ class DatasetAttr:
     # basic configs
     load_from: Literal["hf_hub", "ms_hub", "om_hub", "script", "file"]
     dataset_name: str
-    formatting: Literal["alpaca", "sharegpt", "openai"] = "alpaca"
+    # 1. 在基本配置中，把 bwsa 加进 Literal 提示里
+    formatting: Literal["alpaca", "sharegpt", "openai", "bwsa"] = "alpaca"
     ranking: bool = False
     # extra configs
     subset: str | None = None
@@ -52,6 +53,11 @@ class DatasetAttr:
     query: str | None = "input"
     response: str | None = "output"
     history: str | None = None
+    # 2. 在 alpaca columns 下方，新增双语专用的列名
+    prompt_en: str | None = None
+    response_en: str | None = None
+    prompt_bo: str | None = None
+    response_bo: str | None = None
     # sharegpt columns
     messages: str | None = "conversations"
     # sharegpt tags
@@ -68,7 +74,8 @@ class DatasetAttr:
 
     def set_attr(self, key: str, obj: dict[str, Any], default: Any | None = None) -> None:
         setattr(self, key, obj.get(key, default))
-
+        
+    # 3. 在 join() 方法中，把新列名加进遍历列表
     def join(self, attr: dict[str, Any]) -> None:
         self.set_attr("formatting", attr, default="alpaca")
         self.set_attr("ranking", attr, default=False)
@@ -80,6 +87,8 @@ class DatasetAttr:
         if "columns" in attr:
             column_names = ["prompt", "query", "response", "history", "messages", "system", "tools"]
             column_names += ["images", "videos", "audios", "chosen", "rejected", "kto_tag"]
+            # -> 新增下面这行 <-
+            column_names += ["prompt_en", "response_en", "prompt_bo", "response_bo"]
             for column_name in column_names:
                 self.set_attr(column_name, attr["columns"])
 

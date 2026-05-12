@@ -740,6 +740,195 @@ def _asft_cross_entropy(
     return dft_loss + asft_alpha * kl_loss
 
 
+def xltp_loss_func(
+    outputs: "torch.Tensor",
+    labels: "torch.Tensor",
+    num_items_in_batch: Optional["torch.Tensor"] = None,
+    alpha: float = 0.5,
+    sep_token_id: int = -100,
+    ignore_index: int = -100,
+) -> "torch.Tensor":
+    r"""
+    Cross-Lingual Thought Propagation (XLTP) Loss.
+    Applies a weight of 1.0 to thought tokens (R) and a weight of alpha to answer tokens (Y).
+    """
+    logits = outputs.get("logits")
+    if logits is None:
+        return outputs.get("loss", torch.tensor(0.0))
+
+    logits = logits.float()
+    batch_size, seq_len, vocab_size = logits.shape
+    
+    # Causal LM 的错位 (Shift) 操作
+    labels = torch.nn.functional.pad(labels, (0, 1), value=ignore_index)
+    shift_labels = labels[..., 1:].contiguous()
+    
+    # 1. 计算每个 Token 的基础交叉熵损失
+    per_token_loss = torch.nn.functional.cross_entropy(
+        logits.view(-1, vocab_size), 
+        shift_labels.view(-1).to(logits.device), 
+        ignore_index=ignore_index, 
+        reduction="none"
+    ).view(batch_size, seq_len)
+    
+    # 2. 初始化权重矩阵，默认全为 1.0
+    weights = torch.ones_like(per_token_loss)
+    
+    # 3. 动态寻找分隔符 (纯向量化实现，消灭 .item() 和 CPU 同步)
+    if sep_token_id != ignore_index:
+        # 步骤 A：找出所有等于分隔符的位置，得到 Boolean Mask (batch_size, seq_len)
+        is_sep = (shift_labels == sep_token_id)
+        
+        # 步骤 B：使用 cumsum 累加。一旦某行出现过 True，后续所有的值都会大于 0
+        has_passed_sep = torch.cumsum(is_sep.int(), dim=1) > 0
+        
+        # 步骤 C：因为业务逻辑是 "分隔符之后 (sep_idx + 1) 开始乘以 alpha"
+        # 所以我们将 Mask 整体向右平移一位，最左边补 False
+        shifted_mask = torch.cat([
+            torch.zeros((batch_size, 1), dtype=torch.bool, device=shift_labels.device),
+            has_passed_sep[:, :-1]
+        ], dim=1)
+        
+        # 步骤 D：使用 torch.where 一次性赋值。如果是 True 填入 alpha，False 保持 1.0
+        weights = torch.where(
+            shifted_mask, 
+            torch.tensor(alpha, dtype=weights.dtype, device=weights.device), 
+            weights
+        )
+                
+    # 4. 掩码掉 padding 部分并应用权重
+    valid_mask = shift_labels != ignore_index
+    valid_losses = per_token_loss[valid_mask]
+    valid_weights = weights[valid_mask]
+    
+    weighted_losses = valid_losses * valid_weights
+    
+    # 5. 按照 Hugging Face 和 LLaMA-Factory 的最新规范处理 batch 平均
+    if num_items_in_batch is not None:
+        total_loss = weighted_losses.sum()
+        if torch.is_tensor(num_items_in_batch):
+            num_items_in_batch = num_items_in_batch.to(total_loss.device)
+        loss = total_loss / num_items_in_batch
+    else:
+        loss = weighted_losses.mean()
+        
+    return loss
+
+
+# 定义两个全局的记忆体队列
+_GLOBAL_EN_QUEUE = None
+_GLOBAL_BO_QUEUE = None
+
+def bwsa_loss_func(
+    outputs: "torch.Tensor", 
+    labels: "torch.Tensor", 
+    num_items_in_batch: Optional["torch.Tensor"] = None, 
+    alpha: float = 0.1, 
+    ignore_index: int = -100
+) -> "torch.Tensor":
+    r"""
+    Batch-Wise Semantic Alignment (BWSA) Loss.
+    [Ultimate Version]: Last Token Pooling + Symmetric InfoNCE with Dual Memory Banks.
+    """
+    global _GLOBAL_EN_QUEUE, _GLOBAL_BO_QUEUE
+    
+    # === 1. 基础 SFT 损失计算 ===
+    loss_sft = outputs.get("loss")
+    if loss_sft is None:
+        logits = outputs.get("logits")
+        if logits is None:
+            return torch.tensor(0.0, device=labels.device)
+        shift_logits = logits[..., :-1, :].contiguous()
+        shift_labels = labels[..., 1:].contiguous()
+        loss_sft = torch.nn.functional.cross_entropy(
+            shift_logits.view(-1, shift_logits.size(-1)), 
+            shift_labels.view(-1).to(shift_logits.device), 
+            ignore_index=ignore_index
+        )
+    
+    # === 2. 截取隐状态与 Last Token Pooling ===
+    hidden_states = outputs.get("hidden_states")
+    if hidden_states is None:
+        raise ValueError("BWSA requires output_hidden_states=True.")
+        
+    last_hidden = hidden_states[-1] 
+    batch_size = last_hidden.size(0)
+    
+    assert batch_size % 2 == 0, f"Batch size must be even for BWSA, got {batch_size}"
+    half_batch = batch_size // 2
+    
+    en_hidden = last_hidden[:half_batch]
+    bo_hidden = last_hidden[half_batch:]
+    en_labels = labels[:half_batch]
+    bo_labels = labels[half_batch:]
+    
+    en_mask = (en_labels != ignore_index).float()
+    bo_mask = (bo_labels != ignore_index).float()
+    
+    en_lengths = torch.clamp(en_mask.sum(dim=1).long() - 1, min=0)
+    bo_lengths = torch.clamp(bo_mask.sum(dim=1).long() - 1, min=0)
+    
+    hidden_dim = en_hidden.size(-1)
+    en_idx = en_lengths.unsqueeze(1).unsqueeze(2).expand(-1, -1, hidden_dim)
+    bo_idx = bo_lengths.unsqueeze(1).unsqueeze(2).expand(-1, -1, hidden_dim)
+    
+    en_pooled = torch.gather(en_hidden, 1, en_idx).squeeze(1) 
+    bo_pooled = torch.gather(bo_hidden, 1, bo_idx).squeeze(1)
+    
+    # === 3. 对比学习：双向记忆体队列 (Dual Memory Bank) ===
+    
+    # (1) L2 归一化
+    en_current = torch.nn.functional.normalize(en_pooled, p=2, dim=-1)
+    bo_current = torch.nn.functional.normalize(bo_pooled, p=2, dim=-1)
+    
+    temperature = 0.05
+    queue_size = 128  # 队列容量
+    
+    # (2) 队列初始化与维护
+    if _GLOBAL_EN_QUEUE is None or _GLOBAL_BO_QUEUE is None:
+        _GLOBAL_EN_QUEUE = en_current.detach().clone()
+        _GLOBAL_BO_QUEUE = bo_current.detach().clone()
+        # 第一次迭代，没有足够的历史样本，直接算当前 Batch 的普通 InfoNCE
+        en_targets = en_current
+        bo_targets = bo_current
+    else:
+        # 取出切断梯度的历史样本作为纯负样本
+        past_en = _GLOBAL_EN_QUEUE.detach().clone()
+        past_bo = _GLOBAL_BO_QUEUE.detach().clone()
+        
+        # 将当前的句向量合并到目标池中 (当前Batch在前面，历史队列在后面)
+        # 形状变为: [HalfBatch + QueueSize, HiddenDim]
+        en_targets = torch.cat([en_current, past_en], dim=0)
+        bo_targets = torch.cat([bo_current, past_bo], dim=0)
+        
+        # 更新全局队列 (FIFO)
+        _GLOBAL_EN_QUEUE = torch.cat([_GLOBAL_EN_QUEUE, en_current.detach()], dim=0)
+        _GLOBAL_BO_QUEUE = torch.cat([_GLOBAL_BO_QUEUE, bo_current.detach()], dim=0)
+        if _GLOBAL_EN_QUEUE.size(0) > queue_size:
+            _GLOBAL_EN_QUEUE = _GLOBAL_EN_QUEUE[-queue_size:]
+            _GLOBAL_BO_QUEUE = _GLOBAL_BO_QUEUE[-queue_size:]
+
+    # (3) 计算对称相似度矩阵 (形状为: [HalfBatch, HalfBatch + QueueSize])
+    # sim_e2b: 拿现在的英文，去匹配所有的藏文 (现在的+历史的)
+    sim_e2b = torch.matmul(en_current, bo_targets.T) / temperature
+    # sim_b2e: 拿现在的藏文，去匹配所有的英文 (现在的+历史的)
+    sim_b2e = torch.matmul(bo_current, en_targets.T) / temperature
+    
+    # (4) 寻找正确答案
+    # 因为在构造 targets 时，把当前的样本放在了最前面
+    # 所以对于第 i 个锚点，它的正确答案的正样本索引依然是 i
+    labels_contrastive = torch.arange(half_batch, device=en_current.device, dtype=torch.long)
+    
+    # (5) 对称交叉熵损失
+    loss_e2b = torch.nn.functional.cross_entropy(sim_e2b, labels_contrastive)
+    loss_b2e = torch.nn.functional.cross_entropy(sim_b2e, labels_contrastive)
+    
+    loss_cons = (loss_e2b + loss_b2e) / 2.0
+    
+    # === 4. 加权合并 ===
+    return loss_sft + alpha * loss_cons
+
+
 def _kl_divergence(
     policy_logits: torch.Tensor,
     ref_logits: torch.Tensor,

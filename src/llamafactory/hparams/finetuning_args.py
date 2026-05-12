@@ -538,6 +538,25 @@ class FinetuningArguments(
         default=False,
         metadata={"help": "Whether or not to compute effective tokens per second."},
     )
+    # ---------- 新增 XLTP 损失函数参数 ----------
+    use_xltp_loss: bool = field(
+        default=False,
+        metadata={"help": "Whether or not to use the Cross-Lingual Thought Propagation (XLTP) loss."}
+    )
+    xltp_alpha: float = field(
+        default=0.5,
+        metadata={"help": "The weight (alpha) applied to the target language generation in XLTP loss."}
+    )
+    # -------------------------------------------
+    # ---------- 新增 BWSA 参数 ----------
+    use_bwsa_loss: bool = field(
+        default=False,
+        metadata={"help": "Whether to use Batch-Wise Semantic Alignment (BWSA) loss."}
+    )
+    bwsa_alpha: float = field(
+        default=0.1,
+        metadata={"help": "The lambda weight for BWSA consistency loss."}
+    )
 
     def __post_init__(self):
         def split_arg(arg):

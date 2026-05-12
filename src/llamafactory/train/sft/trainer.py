@@ -123,6 +123,42 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                 asft_loss_func,
                 asft_alpha=finetuning_args.asft_alpha,
             )
+        # ---------- 新增的 XLTP Loss 挂载逻辑 ----------
+        elif finetuning_args.use_xltp_loss:
+            from ..trainer_utils import xltp_loss_func
+
+            # 设定用于分隔推理步骤和最终藏文答案的特殊 Token
+            sep_token = "</think>" 
+            
+            # 使用 tokenizer 获取其 ID
+            sep_token_id = self.processing_class.convert_tokens_to_ids(sep_token)
+            
+            # 容错检查：确保分隔符已在词表中
+            if sep_token_id is None or sep_token_id == self.processing_class.unk_token_id:
+                logger.warning_rank0(f"XLTP warning: Separator token '{sep_token}' not found in vocabulary. Loss will fallback to standard Cross Entropy.")
+                sep_token_id = -100 
+            else:
+                logger.info_rank0(f"XLTP enabled: using '{sep_token}' (ID: {sep_token_id}) as boundary, alpha={finetuning_args.xltp_alpha}")
+
+            self.compute_loss_func = lambda outputs, labels, num_items_in_batch=None: xltp_loss_func(
+                outputs, 
+                labels, 
+                num_items_in_batch=num_items_in_batch,
+                alpha=finetuning_args.xltp_alpha,
+                sep_token_id=sep_token_id
+            )
+        # ---------- 新增的 BWSA Loss 挂载逻辑 ----------
+        elif getattr(finetuning_args, "use_bwsa_loss", False):
+            from ..trainer_utils import bwsa_loss_func
+            
+            logger.info_rank0(f"BWSA enabled: Semantic geometry compression, alpha={getattr(finetuning_args, 'bwsa_alpha', 0.1)}")
+            self.compute_loss_func = lambda outputs, labels, num_items_in_batch=None: bwsa_loss_func(
+                outputs, 
+                labels, 
+                num_items_in_batch=num_items_in_batch,
+                alpha=getattr(finetuning_args, 'bwsa_alpha', 0.1) # 此处的 alpha 后续可接入 Warm-up scheduler
+            )
+        # ---------------------------------------------
 
         if training_args.fp8 and hasattr(self, "accelerator"):  # verify FP8 status after trainer initialization
             verify_fp8_status(self.accelerator, training_args)
@@ -158,6 +194,15 @@ class CustomSeq2SeqTrainer(Seq2SeqTrainer):
                 ref_logits = ref_outputs.logits
             outputs = model(**inputs)
             return self.compute_loss_func(outputs, inputs["labels"], ref_logits)
+
+        # --- 新增的 BWSA 拦截分支 ---
+        elif getattr(self.finetuning_args, "use_bwsa_loss", False):
+            # 强制要求模型吐出隐状态 (Hidden states)
+            inputs["output_hidden_states"] = True
+            outputs = model(**inputs)
+            return self.compute_loss_func(outputs, inputs["labels"])
+        # ----------------------------
+        
         else:
             return super().compute_loss(model, inputs, *args, **kwargs)
 

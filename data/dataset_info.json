@@ -738,5 +738,47 @@
       "prompt": "content"
     },
     "folder": "python"
+  },
+  "xltp_bo_cot_dataset": {
+        "file_name": "bo_cot_alpaca.jsonl",
+        "columns": {
+            "prompt": "instruction",
+            "query": "input",
+            "response": "output"
+    }
+  },
+  "xltp_zh_cot_dataset": {
+        "file_name": "zh_cot_alpaca.jsonl",
+        "columns": {
+            "prompt": "instruction",
+            "query": "input",
+            "response": "output"
+    }
+  },
+  "xltp_en_cot_dataset": {
+        "file_name": "en_cot_alpaca.jsonl",
+        "columns": {
+            "prompt": "instruction",
+            "query": "input",
+            "response": "output"
+    }
+  },
+  "xltp_full_en_cot_dataset": {
+        "file_name": "split_cot_full_logic_less_than_8192_zh.jsonl",
+        "columns": {
+            "prompt": "instruction",
+            "query": "input",
+            "response": "output"
+    }
+  },
+  "bwsa_en_bo_dataset": {
+        "file_name": "bwsa_merge_en_bo.jsonl",
+        "formatting": "bwsa",
+        "columns": {
+            "prompt_en": "instruction_en",
+            "response_en": "output_en",
+            "prompt_bo": "instruction_bo",
+            "response_bo": "output_bo"
+    }
   }
 }

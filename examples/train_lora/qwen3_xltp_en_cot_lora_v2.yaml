@@ -1,0 +1,43 @@
+### model
+model_name_or_path: /home/nlp/data/llm/qwen3-8bbo-base-p2
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+lora_rank: 64
+lora_alpha: 128
+lora_dropout: 0.05
+additional_target: lm_head
+
+### dataset
+dataset: xltp_en_cot_dataset
+template: qwen
+cutoff_len: 4096
+overwrite_cache: true
+preprocessing_num_workers: 16
+
+### custom XLTP arguments
+use_xltp_loss: true               # 激活跨语言思维传播损失函数
+xltp_alpha: 1.0                   # 目标语言（藏文）的 Loss 权重
+
+### output
+output_dir: /home/nlp/data/lyl/lora_adapter/qwen3-8b/xltp_en_cot_10k_samples_v2
+logging_steps: 5
+save_steps: 500
+save_total_limit: 2
+save_only_model: true
+plot_loss: true
+overwrite_output_dir: true
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 2.0e-4
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_steps: 180
+bf16: true                        # L20 架构必须开启 bf16
+gradient_checkpointing: true      # 显存优化核武器：用计算时间换显存空间
+flash_attn: fa2                   # 显式启用 Flash Attention 2

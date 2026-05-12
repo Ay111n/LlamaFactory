@@ -220,6 +220,10 @@ def _get_dataset_processor(
         dataset_processor_class = PairwiseDatasetProcessor
     elif stage == "kto":
         dataset_processor_class = FeedbackDatasetProcessor
+    elif stage == "bwsa":
+        # 导入我们刚刚在 supervised.py 里写的处理器
+        from .processor.supervised import BWSADatasetProcessor
+        dataset_processor_class = BWSADatasetProcessor
     else:
         dataset_processor_class = UnsupervisedDatasetProcessor
 

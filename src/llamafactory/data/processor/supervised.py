@@ -201,3 +201,49 @@ class PackedSupervisedDatasetProcessor(SupervisedDatasetProcessor):
             model_inputs["audios"].append(packed_audios or None)
 
         return model_inputs
+
+
+@dataclass
+class BWSADatasetProcessor(SupervisedDatasetProcessor):
+    def preprocess_dataset(self, examples: dict[str, list[Any]]) -> dict[str, list[Any]]:
+        model_inputs = defaultdict(list)
+        for i in range(len(examples["_prompt_en"])):
+            # 基础过滤机制
+            if len(examples["_prompt_en"][i]) == 0 or len(examples["_prompt_bo"][i]) == 0:
+                continue
+
+            # 1. 编码英文部分
+            en_input_ids, en_labels = self._encode_data_example(
+                prompt=examples["_prompt_en"][i],
+                response=examples["_response_en"][i],
+                system=examples["_system"][i],
+                tools=examples["_tools"][i] if "_tools" in examples else "",
+                images=[], videos=[], audios=[]
+            )
+            
+            # 2. 编码藏文部分
+            bo_input_ids, bo_labels = self._encode_data_example(
+                prompt=examples["_prompt_bo"][i],
+                response=examples["_response_bo"][i],
+                system=examples["_system"][i],
+                tools=examples["_tools"][i] if "_tools" in examples else "",
+                images=[], videos=[], audios=[]
+            )
+
+            # 3. 将英藏特征一起存入单条样本中
+            # 这里的 keys 必须与我们在 collator.py 里解包时的 keys 完全对应
+            model_inputs["en_input_ids"].append(en_input_ids)
+            model_inputs["en_attention_mask"].append([1] * len(en_input_ids))
+            model_inputs["en_labels"].append(en_labels)
+
+            model_inputs["bo_input_ids"].append(bo_input_ids)
+            model_inputs["bo_attention_mask"].append([1] * len(bo_input_ids))
+            model_inputs["bo_labels"].append(bo_labels)
+
+        return model_inputs
+
+    def print_data_example(self, example: dict[str, list[int]]) -> None:
+        print("--- BWSA EN Sample ---")
+        print(self.tokenizer.decode(example["en_input_ids"], skip_special_tokens=False))
+        print("--- BWSA BO Sample ---")
+        print(self.tokenizer.decode(example["bo_input_ids"], skip_special_tokens=False))

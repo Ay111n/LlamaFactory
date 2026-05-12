@@ -342,3 +342,32 @@ class KTODataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
 
         batch["kto_tags"] = torch.tensor(kto_tags)
         return batch
+
+
+@dataclass
+class BWSADataCollatorWithPadding(MultiModalDataCollatorForSeq2Seq):
+    r"""Data collator for Batch-Wise Semantic Alignment (BWSA) data."""
+
+    def __call__(self, features: list[dict[str, Any]]) -> dict[str, "torch.Tensor"]:
+        r"""Pad batched data to the longest sequence in the batch.
+        
+        We generate 2 * n examples where the first n examples represent English (en) examples and
+        the last n examples represent Tibetan (bo) examples. 
+        Total batch size will be N.
+        """
+        concatenated_features = []
+        # 遍历英、藏两种语言前缀，将 N/2 的双语特征拆解成 N 个单语特征
+        for key in ("en", "bo"):
+            for feature in features:
+                target_feature = {
+                    "input_ids": feature[f"{key}_input_ids"],
+                    "attention_mask": feature[f"{key}_attention_mask"],
+                    "labels": feature[f"{key}_labels"],
+                    "images": feature.get("images", []),
+                    "videos": feature.get("videos", []),
+                    "audios": feature.get("audios", []),
+                }
+                concatenated_features.append(target_feature)
+
+        # 交给父类完成统一的 padding 操作
+        return super().__call__(concatenated_features)
