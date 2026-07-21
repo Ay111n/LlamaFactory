@@ -87,7 +87,6 @@ def run_sft(
             **tokenizer_module,
         )
 
-    )
 
     # Metric utils
     metric_module = {}

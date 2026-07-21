@@ -746,7 +746,7 @@
     },
     "folder": "python"
   },
-  "xltp_bo_cot_dataset": {
+  "xltp_bo_cot_dataset_v1": {
         "file_name": "bo_cot_alpaca.jsonl",
         "columns": {
             "prompt": "instruction",
@@ -754,7 +754,7 @@
             "response": "output"
     }
   },
-  "xltp_zh_cot_dataset": {
+  "xltp_zh_cot_dataset_v1": {
         "file_name": "zh_cot_alpaca.jsonl",
         "columns": {
             "prompt": "instruction",
@@ -762,7 +762,7 @@
             "response": "output"
     }
   },
-  "xltp_en_cot_dataset": {
+  "xltp_en_cot_dataset_v1": {
         "file_name": "en_cot_alpaca.jsonl",
         "columns": {
             "prompt": "instruction",
@@ -770,22 +770,25 @@
             "response": "output"
     }
   },
-  "xltp_full_en_cot_dataset": {
-        "file_name": "split_cot_full_logic_less_than_8192_zh.jsonl",
+  "xltp_en_cot_inferenced_dataset_v1": {
+        "file_name": "en_cot_inferenced_alpaca.jsonl",
         "columns": {
             "prompt": "instruction",
             "query": "input",
             "response": "output"
     }
   },
-  "bwsa_en_bo_dataset": {
-        "file_name": "bwsa_merge_en_bo.jsonl",
-        "formatting": "bwsa",
+  "xltp_en_cot_dataset_v2": {
+        "file_name": "sampled_10k_bo_sharegpt.jsonl",
+	"formatting": "sharegpt",
         "columns": {
-            "prompt_en": "instruction_en",
-            "response_en": "output_en",
-            "prompt_bo": "instruction_bo",
-            "response_bo": "output_bo"
+            "messages": "messages"
+	},
+	"tags": {
+	    "role_tag": "role",
+	    "content_tag": "content",
+	    "user_tag": "user",
+	    "assistant_tag": "assistant"
     }
   }
 }

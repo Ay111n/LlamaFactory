@@ -12,7 +12,7 @@ lora_dropout: 0.05
 additional_target: lm_head
 
 ### dataset
-dataset: xltp_en_cot_dataset
+dataset: xltp_en_cot_inferenced_dataset_v1
 template: qwen
 cutoff_len: 4096
 overwrite_cache: true
@@ -23,7 +23,7 @@ use_xltp_loss: true               # 激活跨语言思维传播损失函数
 xltp_alpha: 1.0                   # 目标语言（藏文）的 Loss 权重
 
 ### output
-output_dir: /home/nlp/data/lyl/lora_adapter/qwen3-8b/xltp_en_cot_10k_samples_v2
+output_dir: /home/nlp/data/lyl/lora_adapter/qwen3-8b/base_xltp_en_cot_inferenced_10k_samples_v1
 logging_steps: 5
 save_steps: 500
 save_total_limit: 2
