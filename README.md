@@ -50,10 +50,12 @@ Start local training:
 Start cloud training:
 - **Colab (free)**: https://colab.research.google.com/drive/1eRTPn37ltBbYsISy9Aw2NuI2Aq5CQrD9?usp=sharing
 - **PAI-DSW (free trial)**: https://gallery.pai-ml.com/#/preview/deepLearning/nlp/llama_factory
+- **AMD GPU Cloud (free credits)**: https://github.com/AMD-AIM/AMD_Developers_Notebooks/blob/main/en/AMD_developer_LLaMAFactory_note_en.md
 
 Read technical notes:
 - **Documentation (WIP)**: https://llamafactory.readthedocs.io/en/latest/
 - **Documentation (AMD GPU)**: https://rocm.docs.amd.com/projects/ai-developer-hub/en/latest/notebooks/fine_tune/llama_factory_llama3.html
+- **Documentation (ASCEND NPU)**: https://llamafactory.readthedocs.io/en/latest/multibackend/npu/index.html
 - **Official Blog**: https://blog.llamafactory.net/en/
 
 > [!NOTE]
@@ -111,6 +113,8 @@ Read technical notes:
 
 - 💡 [KTransformers Fine-Tuning × LLaMA Factory: Fine-tuning 1000 Billion models with 2 4090-GPU + CPU](https://blog.llamafactory.net/en/posts/ktransformers/) (English)
 - 💡 [Easy Dataset × LLaMA Factory: Enabling LLMs to Efficiently Learn Domain Knowledge](https://buaa-act.feishu.cn/wiki/GVzlwYcRFiR8OLkHbL6cQpYin7g) (English)
+- 💡 [DataFlow × LLaMA Factory: Producing High-Quality Data for LLM Training with a Data Preparation Pipeline](https://wcny4qa9krto.feishu.cn/wiki/LWkkwTDBfiiRKqkDSvucG6yjnbW) (English) | [中文](https://wcny4qa9krto.feishu.cn/wiki/LlMxweUAJimrmykRD5qcGuswnHd)
+- 💡 [DataFlex × LLaMA Factory: A Data-Centric Dynamic Training System Built on LLaMA-Factory](https://wcny4qa9krto.feishu.cn/wiki/OlREwPQWdi9K6ZkJNHIciLhtnkv) (English) | [中文](https://wcny4qa9krto.feishu.cn/wiki/H2A9wSsbCinzavkT2oyc2C5Vn0e)
 - [A One-Stop Code-Free Model Reinforcement Learning and Deployment Platform based on LLaMA-Factory and EasyR1](https://aws.amazon.com/cn/blogs/china/building-llm-model-hub-based-on-llamafactory-and-easyr1/) (Chinese)
 - [How Apoidea Group enhances visual information extraction from banking documents with multimodal models using LLaMA-Factory on Amazon SageMaker HyperPod](https://aws.amazon.com/cn/blogs/machine-learning/how-apoidea-group-enhances-visual-information-extraction-from-banking-documents-with-multimodal-models-using-llama-factory-on-amazon-sagemaker-hyperpod/) (English)
 
@@ -297,8 +301,9 @@ Read technical notes:
 | [LLaVA-NeXT](https://huggingface.co/llava-hf)                     | 7B/8B/13B/34B/72B/110B           | llava_next           |
 | [LLaVA-NeXT-Video](https://huggingface.co/llava-hf)               | 7B/34B                           | llava_next_video     |
 | [MiMo](https://huggingface.co/XiaomiMiMo)                         | 7B/309B                          | mimo/mimo_v2         |
-| [MiniCPM 4](https://huggingface.co/openbmb)                       | 0.5B/8B                          | cpm4                 |
+| [MiniCPM 4/5](https://huggingface.co/openbmb)                     | 0.5B/1B/8B                       | cpm4/empty           |
 | [MiniCPM-o/MiniCPM-V 4.5](https://huggingface.co/openbmb)         | 8B/9B                            | minicpm_o/minicpm_v  |
+| [MiniCPM-V 4.6](https://huggingface.co/openbmb)                   | 3B/8B                            | minicpm_v_4_6        |
 | [MiniMax-M1/MiniMax-M2](https://huggingface.co/MiniMaxAI/models)  | 229B/456B                        | minimax1/minimax2    |
 | [Ministral 3](https://huggingface.co/mistralai)                   | 3B/8B/14B                        | ministral3           |
 | [Mistral/Mixtral](https://huggingface.co/mistralai)               | 7B/8x7B/8x22B                    | mistral              |
@@ -554,7 +559,24 @@ Try `dataloader_num_workers: 0` if you encounter `Can't pickle local object` err
 
 #### Install BitsAndBytes
 
-If you want to enable the quantized LoRA (QLoRA) on the Windows platform, you need to install a pre-built version of `bitsandbytes` library, which supports CUDA 11.1 to 12.2, please select the appropriate [release version](https://github.com/jllllll/bitsandbytes-windows-webui/releases/tag/wheels) based on your CUDA version.
+To enable Quantized LoRA (QLoRA) on Windows, you need to install bitsandbytes.
+
+For most users, it is recommended to install the latest official release:
+
+```bash
+pip install bitsandbytes
+```
+
+If you are using uv to manage your virtual environment, it is recommended to install bitsandbytes after installing the GPU-enabled version of PyTorch:
+
+```bash
+uv pip install bitsandbytes --no-deps
+```
+
+[!IMPORTANT]
+Pay attention to the CUDA Toolkit version when installing bitsandbytes. Official bitsandbytes releases are built for specific CUDA Toolkit versions. On Windows x86-64, separate builds are currently provided for CUDA 11.8–12.6 and CUDA 12.8–12.9. Support for NVIDIA RTX 50 Series GPUs (e.g., RTX 5060 Ti, sm_120) requires the CUDA 12.8–12.9 builds.
+
+If your environment uses an older CUDA version, or you need compatibility with older Windows / PyTorch combinations, you can install the third-party precompiled Windows wheel:
 
 ```bash
 pip install https://github.com/jllllll/bitsandbytes-windows-webui/releases/download/wheels/bitsandbytes-0.41.2.post2-py3-none-win_amd64.whl
@@ -824,7 +846,7 @@ If you have a project that should be incorporated, please contact via email or c
 1. Choi et al. FACT-GPT: Fact-Checking Augmentation via Claim Matching with LLMs. 2024. [[arxiv]](https://arxiv.org/abs/2402.05904)
 1. Zhang et al. AutoMathText: Autonomous Data Selection with Language Models for Mathematical Texts. 2024. [[arxiv]](https://arxiv.org/abs/2402.07625)
 1. Lyu et al. KnowTuning: Knowledge-aware Fine-tuning for Large Language Models. 2024. [[arxiv]](https://arxiv.org/abs/2402.11176)
-1. Yang et al. LaCo: Large Language Model Pruning via Layer Collaps. 2024. [[arxiv]](https://arxiv.org/abs/2402.11187)
+1. Yang et al. LaCo: Large Language Model Pruning via Layer Collapse. 2024. [[arxiv]](https://arxiv.org/abs/2402.11187)
 1. Bhardwaj et al. Language Models are Homer Simpson! Safety Re-Alignment of Fine-tuned Language Models through Task Arithmetic. 2024. [[arxiv]](https://arxiv.org/abs/2402.11746)
 1. Yang et al. Enhancing Empathetic Response Generation by Augmenting LLMs with Small-scale Empathetic Models. 2024. [[arxiv]](https://arxiv.org/abs/2402.11801)
 1. Yi et al. Generation Meets Verification: Accelerating Large Language Model Inference with Smart Parallel Auto-Correct Decoding. ACL 2024 Findings. [[arxiv]](https://arxiv.org/abs/2402.11809)
