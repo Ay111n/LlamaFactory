@@ -76,7 +76,31 @@ class TrainingArguments:
     )
     dist_config: PluginConfig | None = field(
         default=None,
-        metadata={"help": "Distribution configuration for training."},
+        metadata={"help": "Distributed backend plugin configuration."},
+    )
+    dp_size: int | None = field(
+        default=None,
+        metadata={"help": "Data parallel size, default to world_size // cp_size."},
+    )
+    cp_size: int = field(
+        default=1,
+        metadata={"help": "Context parallel size."},
+    )
+    cp_mode: str = field(
+        default="ulysses",
+        metadata={"help": "Context parallel implementation."},
+    )
+    mp_replicate_size: int = field(
+        default=1,
+        metadata={"help": "Model parallel replicate size."},
+    )
+    mp_shard_size: int | None = field(
+        default=None,
+        metadata={"help": "Model parallel shard size, default to world_size // mp_replicate_size."},
+    )
+    dist_timeout: int = field(
+        default=18000,
+        metadata={"help": "Distributed process group initialization timeout in seconds."},
     )
     optim_config: PluginConfig | None = field(
         default=None,
@@ -120,6 +144,10 @@ class TrainingArguments:
         default=1,
         metadata={"help": "Log metrics every N optimizer steps."},
     )
+    chunk_loss_size: int | None = field(
+        default=None,
+        metadata={"help": "Maximum flattened token rows per Chunk Loss chunk. None disables Chunk Loss."},
+    )
     pref_loss: Literal["sigmoid", "orpo", "simpo"] = field(
         default="sigmoid",
         metadata={"help": "The type of DPO loss to use."},
@@ -149,6 +177,14 @@ class TrainingArguments:
         self.dist_config = get_plugin_config(self.dist_config)
         self.optim_config = get_plugin_config(self.optim_config)
         self.lr_scheduler_config = get_plugin_config(self.lr_scheduler_config)
+        if self.chunk_loss_size is not None and self.chunk_loss_size <= 0:
+            raise ValueError("`chunk_loss_size` must be positive.")
+        try:
+            from ..plugins.model_plugins.deepspeed_utils import register_deepspeed_dist_config
+
+            register_deepspeed_dist_config(self.dist_config)
+        except ImportError:
+            pass
 
         # The optimizer learning rate has a single source of truth: ``learning_rate``.
         # Propagate it into ``optim_config["lr"]`` so optimizer plugins (e.g. Muon) pick it up
