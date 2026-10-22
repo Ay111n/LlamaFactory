@@ -86,12 +86,9 @@ def _check_fla_dependencies() -> None:
 
 
 def patch_qwen3_5_forward_npu(model: "PreTrainedModel") -> None:
-    """Patch for Qwen3.5 models on NPU by importing torch_npu to enable torch.cuda compatibility.
+    """Replace the Qwen3.5 gated delta rule kernel with the NPU-compatible implementation.
 
-    On NPU, torch.cuda operations will fail unless torch_npu is imported.
-    torch_npu provides compatibility layer that maps torch.cuda calls to NPU operations.
-
-    Also replaces chunk_gated_delta_rule with NPU-compatible implementation.
+    Skip the patch unless an Ascend910-series device is detected and triton_ascend is installed.
     """
     import importlib.metadata
 
@@ -483,7 +480,7 @@ def patch_model(
         prepare_model_for_training(model, model_args)
         autocast_projector_dtype(model, model_args)
         add_z3_leaf_module(model)
-
+        
         if getattr(model.config, "model_type", None) in [
             "qwen3_5",
             "qwen3_5_moe",
