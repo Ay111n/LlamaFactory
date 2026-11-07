@@ -15,7 +15,7 @@
   "preflight_root": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_g2_full_preflight_20261026",
   "original_yaml": "/home/nlp/data/lyl/LLaMA-Factory/examples/train_lora/qwen3_mixed_sft_49800_lora_v1.yaml",
   "base_model": "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2",
-  "historical_model": "/home/nlp/data/lyl/model/qwen3-8bbo-sft-new2-mixed-checkpoint6000-merged",
+  "historical_model": "/home/nlp/data/lyl/finetuning/model/tokenizers/mixed_sft_20261016",
   "training_python": "/opt/anaconda3/envs/training/bin/python",
   "inference_python": "/opt/anaconda3/envs/inference/bin/python"
 }
