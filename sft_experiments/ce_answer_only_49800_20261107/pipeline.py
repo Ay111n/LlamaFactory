@@ -46,7 +46,13 @@ def gpu_lease():
         lease[2].close()
 
 def run(command,log,env):
-    with Path(log).open("x") as stream:
+    log=Path(log)
+    original=log
+    attempt=1
+    while log.exists():
+        attempt+=1
+        log=original.with_name(original.stem+f"-retry{attempt}.log")
+    with log.open("x") as stream:
         p=subprocess.Popen(command,cwd=HERE,env=env,stdout=stream,stderr=subprocess.STDOUT,stdin=subprocess.DEVNULL)
         write(ARTIFACTS/"child.json",{"pid":p.pid,"command":command,"log":str(log),"time":now()})
         samples=[]
@@ -144,6 +150,9 @@ def main():
             evaluate_checkpoint(evaluator,best,"off",env)
         comparison=read(ANALYSIS/"comparison.json")
         assert "best_off" in comparison
+        stage("rendering_curve")
+        run([PYTHON,str(BENCHMARK/"eval/scripts"/NAME/"plot.py")],ARTIFACTS/"plot.log",dict(env,CUDA_VISIBLE_DEVICES=""))
+        assert (ANALYSIS/"checkpoint_accuracy.png").is_file()
         write(ARTIFACTS/"pipeline.json",{"state":"complete","pid":os.getpid(),"time":now(),
             "trained_steps":9339,"evaluated_steps":STEPS,"off_step":best,"analysis":str(ANALYSIS/"report.md")})
     except BaseException as error:

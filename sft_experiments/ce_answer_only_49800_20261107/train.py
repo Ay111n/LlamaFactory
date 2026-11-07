@@ -99,6 +99,9 @@ def main():
     parser.add_argument("--resume")
     args=parser.parse_args()
     assert sys.executable==PYTHON
+    if args.phase=="main":
+        for filename,expected in read(ARTIFACTS/"source_manifest.json")["files"].items():
+            assert sha(filename)==expected,filename
     prepared=read(ARTIFACTS/"prepared.json")
     assert prepared["passed"]
     for relative, expected in prepared["cache_sha256"].items():
