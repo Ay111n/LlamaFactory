@@ -1,0 +1,60 @@
+{
+  "experiment_id": "mixed_sft_end_ce_20261026",
+  "arms": [
+    "E1",
+    "E2",
+    "E1-M"
+  ],
+  "coefficient": 0.0012,
+  "seed": 3407,
+  "data_seed": 3407,
+  "dataset_count": 6000,
+  "think_count": 3183,
+  "optimizer_steps": 1125,
+  "epochs": 3,
+  "effective_batch": 16,
+  "calibration_batches": 8,
+  "R_gate_p90_min": 0.001,
+  "R_gate_p90_max": 1,
+  "match_relative_tolerance": 2e-05,
+  "primary_pairs": [
+    [
+      "S0",
+      "E1"
+    ],
+    [
+      "S0",
+      "E2"
+    ],
+    [
+      "E1",
+      "E2"
+    ],
+    [
+      "E1-M",
+      "E2"
+    ],
+    [
+      "G1",
+      "E1"
+    ],
+    [
+      "G2",
+      "E2"
+    ],
+    [
+      "G3-M",
+      "E2"
+    ]
+  ],
+  "primary_Holm_family": "7 pairs x closed/thinking_truncated/correct/extractable = 28 exact paired tests",
+  "bootstrap_seed": 3407,
+  "bootstrap_replicates": 10000,
+  "DEV_count": 666,
+  "TEST_used": false,
+  "full_training": false,
+  "inference_seed": 42,
+  "max_tokens": 4096,
+  "force_thinking_stop": false,
+  "match_interpretation": "Counterfactual E2 norm at E1-M own parameters/window; not optimizer state or cross-trajectory matching"
+}

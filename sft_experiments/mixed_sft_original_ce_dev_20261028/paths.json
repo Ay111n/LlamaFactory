@@ -1,0 +1,22 @@
+{
+  "framework_root": "/home/nlp/data/lyl/LLaMA-Factory",
+  "benchmark_root": "/home/nlp/data/lyl/benchmark",
+  "data_root": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_g2_full_49800_20261026",
+  "model_root": "/home/nlp/data/lyl/finetuning/model/sft_experiments/mixed_sft_original_ce_dev_20261028",
+  "results_root": "/home/nlp/data/lyl/benchmark/eval/results/mixed_sft_original_ce_dev_20261028",
+  "analysis_root": "/home/nlp/data/lyl/benchmark/eval/analysis/mixed_sft_original_ce_dev_20261028",
+  "legacy_experiment_root": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_dynamic_termination_20261022",
+  "legacy_model_scripts": "/home/nlp/data/lyl/finetuning/scripts/model/mixed_sft_dynamic_termination_20261022",
+  "legacy_analysis_root": "/home/nlp/data/lyl/benchmark/eval/analysis/mixed_sft_dynamic_termination_20261022",
+  "gold_experiment_root": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_gold_margin_20261023",
+  "prepared_dataset": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_g2_full_preflight_20261026/dataset",
+  "prepared_manifest": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_g2_full_preflight_20261026/preparation_manifest.json",
+  "sample_audit": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_g2_full_preflight_20261026/sample_audit.jsonl",
+  "preflight_root": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_g2_full_preflight_20261026",
+  "original_yaml": "/home/nlp/data/lyl/LLaMA-Factory/examples/train_lora/qwen3_mixed_sft_49800_lora_v1.yaml",
+  "base_model": "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2",
+  "historical_model": "/home/nlp/data/lyl/model/qwen3-8bbo-sft-new2-mixed-checkpoint6000-merged",
+  "training_python": "/opt/anaconda3/envs/training/bin/python",
+  "inference_python": "/opt/anaconda3/envs/inference/bin/python",
+  "protocol_tokenizer": "/home/nlp/data/lyl/finetuning/model/sft_experiments/mixed_sft_gold_margin_20261023/merged/G2"
+}

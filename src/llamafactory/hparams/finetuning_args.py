@@ -618,7 +618,20 @@ class FinetuningArguments(
         metadata={"help": "The lambda weight for BWSA consistency loss."}
     )
 
+    termination_loss_mode: str = field(default="none", metadata={"help": "none|margin|dynamic|matched_margin"})
+    termination_loss_coef: float = field(default=0.0, metadata={"help": "Termination auxiliary coefficient."})
+    termination_dataset_path: str | None = field(default=None, metadata={"help": "Audited pretokenized experiment dataset."})
+
     def __post_init__(self):
+        if self.termination_loss_mode not in ("none", "margin", "dynamic", "matched_margin", "gold_margin", "dynamic_gold_margin", "dynamic_boundary_ce", "matched_gold_margin", "matched_dynamic_boundary_ce", "end_ce", "dynamic_end_ce", "matched_end_ce"):
+            raise ValueError("Invalid termination loss mode")
+        if self.termination_loss_coef < 0:
+            raise ValueError("Negative termination coefficient")
+        if self.termination_dataset_path and any(getattr(self, k, False) for k in
+                ("use_xltp_loss", "use_bwsa_loss", "use_asft_loss", "use_dft_loss", "use_eaft_loss", "use_badam")):
+            raise ValueError("Termination experiments cannot combine other custom losses/optimizers")
+        if self.termination_loss_mode != "none" and not self.termination_dataset_path:
+            raise ValueError("Termination loss requires an audited dataset")
         def split_arg(arg):
             if isinstance(arg, str):
                 return [item.strip() for item in arg.split(",")]

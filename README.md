@@ -997,3 +997,8 @@ If this work is helpful, please kindly cite as:
 ## Acknowledgement
 
 This repo benefits from [PEFT](https://github.com/huggingface/peft), [TRL](https://github.com/huggingface/trl), [QLoRA](https://github.com/artidoro/qlora) and [FastChat](https://github.com/lm-sys/FastChat). Thanks for their wonderful works.
+
+
+## 论文 SFT 实验
+
+自定义 S0/S1/S1-M/S2 实验见 [sft_experiments/](sft_experiments/README.md)。数据与模型由相邻 finetuning 管理，评测由相邻 benchmark 管理。

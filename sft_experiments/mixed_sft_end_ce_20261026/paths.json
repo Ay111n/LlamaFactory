@@ -1,0 +1,23 @@
+{
+  "schema": "end-ce-experiment-paths-v1",
+  "framework_root": "/home/nlp/data/lyl/LLaMA-Factory",
+  "benchmark_root": "/home/nlp/data/lyl/benchmark",
+  "data_root": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_end_ce_20261026",
+  "model_root": "/home/nlp/data/lyl/finetuning/model/sft_experiments/mixed_sft_end_ce_20261026",
+  "results_root": "/home/nlp/data/lyl/benchmark/eval/results/mixed_sft_end_ce_20261026",
+  "analysis_root": "/home/nlp/data/lyl/benchmark/eval/analysis/mixed_sft_end_ce_20261026",
+  "legacy_experiment_root": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_dynamic_termination_20261022",
+  "legacy_model_scripts": "/home/nlp/data/lyl/finetuning/scripts/model/mixed_sft_dynamic_termination_20261022",
+  "legacy_analysis_root": "/home/nlp/data/lyl/benchmark/eval/analysis/mixed_sft_dynamic_termination_20261022",
+  "legacy_results_root": "/home/nlp/data/lyl/benchmark/eval/results/mixed_sft_dynamic_termination_20261022",
+  "prepared_dataset": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_dynamic_termination_20261022/prepared/dataset",
+  "source_dataset": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_dynamic_termination_20261022",
+  "base_model": "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2",
+  "historical_model": "/home/nlp/data/lyl/model/qwen3-8bbo-sft-new2-mixed-checkpoint6000-merged",
+  "training_python": "/opt/anaconda3/envs/training/bin/python",
+  "inference_python": "/opt/anaconda3/envs/inference/bin/python",
+  "gold_experiment_root": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_gold_margin_20261023",
+  "gold_results_root": "/home/nlp/data/lyl/benchmark/eval/results/mixed_sft_gold_margin_20261023",
+  "fixed_probe_cache": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_gold_margin_20261023/gradient_attribution_20261025/fixed_windows.pt",
+  "fixed_probe_manifest": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_gold_margin_20261023/gradient_attribution_20261025/manifest.json"
+}

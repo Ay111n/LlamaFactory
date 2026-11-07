@@ -1,0 +1,233 @@
+标准 token 约束下的英文推理差异目标：数学设计与验证
+日期：2026-11-03
+状态：设计和 CPU 合成数值验证完成；未运行新的模型前向、训练或准确率测评。
+
+一、问题与建议
+
+原目标把教师的“有推理/无推理概率比”作为增强信号，但相对增长不等于符合标准 token。
+已有 1000 Think 诊断中，普通有推理教师的题均 gold NLL 为 0.868014，增强目标为 0.923368；984/1000 题变差。
+来源：../reasoning_distribution_diagnostic_1000_20261103/report.txt。
+这说明原增强操作需要修正，不说明标准 CE-9000 教师整体无效，也不等于已经观测到新损失训练失败。
+
+建议把 raw Q 投影到一个受标准 token 约束的分布集合：
+相对普通有推理教师，标准 token 与每个其他候选的概率比均不得降低。
+随后在满足该约束的分布中，选取与 raw Q 的 KL 距离最小者。
+以下结果是针对本任务推导的具体设计，不是声称某篇论文已给出该方法或藏文有效性。
+
+二、记号与原始目标
+
+对藏文回答的每个监督位置 t，令：
+  x：藏文问题；R：已有英文推理；y_<t：标准藏文回答前缀；g=y_t：当前位置标准 token。
+  p_v=P_ref(v | x,R,y_<t)：冻结 CE-9000 在完整英文推理条件下的分布。
+  r_v=P_ref(v | x,empty_think,y_<t)：冻结 CE-9000 在完整空 think 块条件下的分布。
+  s_v=beta * clip(log p_v - log r_v,-c,c)。
+  qtilde_v=p_v*exp(s_v)/Z0，Z0=sum_u p_u*exp(s_u)。
+
+两次教师前向使用相同的藏文问题和回答历史；仅改变推理条件。数学假定有限 logits 的完整 softmax 分布 p,r 严格为正。
+所有教师分布和最终目标均 stop-gradient。标准 token 只参与监督构造，不输入模型用于预测其自身。
+此处温度为 1；不能把其他温度或不同词表的分布混用而仍沿用同一证明。
+
+三、约束优化问题
+
+定义凸集合：
+  C(p,g)={q: q_v>=0, sum_v q_v=1, p_g*q_v <= p_v*q_g 对所有 v!=g}。
+
+等价概率比约束：
+  q_g/q_v >= p_g/p_v。
+
+取：
+  Q*=argmin_{q in C(p,g)} KL(q || qtilde)。                         (1)
+
+由 log qtilde=log p+s-log Z0，可等价写为：
+  Q*=argmin_{q in C(p,g)} [KL(q || p)-sum_v q_v*s_v]。              (2)
+
+解释：(2) 在保持接近原教师的同时，利用英文推理引起的候选变化；标准 token 的相对支持度是硬约束。
+p 本身可行，所以可行集非空。KL 对 q 严格凸，约束线性，因此最优解唯一。
+“最小修改”仅指 (1) 指定的 KL 方向，不表示保持所有类别关联，也不是证明保留了全部语义推理信息。
+
+为什么不只约束 q_g>=p_g：
+  p=(0.4,0.35,0.25)，g=0；qtilde=(0.2,0.7,0.1)。
+  仅做 gold 概率下限投影，可得 q=(0.4,0.525,0.075)。
+  gold 概率没有下降，但 top-1 已由正确候选变为其他候选。
+  成对概率比约束排除了这种情况。
+
+四、精确解与求解步骤
+
+求一个标量 tau，满足：
+  p_g*(tau-s_g)=sum_{v!=g} p_v*max(s_v-tau,0)。                    (3)
+
+搜索区间为 [s_g,max_v s_v]。左右之差 F(tau) 连续且严格递增；其分段导数为
+  p_g + sum_{v!=g:s_v>tau}p_v > 0。
+在左端 F<=0，右端 F>=0，因而根唯一。
+
+求出 tau 后：
+  w_g=tau；w_v=min(s_v,tau) 对 v!=g。
+  Q*_v=p_v*exp(w_v)/sum_u p_u*exp(w_u)。                           (4)
+
+直观解释：原始增强分数过高的其他候选被压到统一上限；标准 token 获得同一上限；低于上限的其他候选保留原有分数。
+这不是把所有其他候选设为同一个概率。p_v 仍保留在 (4) 中。
+
+可用每位置向量化二分求根，无需额外神经网络前向或通过求根反向传播。
+CPU 验证使用 48 次二分并取最终区间上端。GPU 实现应据 FP32 精度设置停止条件，并重新验证归一化和约束残差。
+增加的工作是词表向量计算，不是零成本；训练速度和显存需另行实测。应按回答位置分块，避免保存全数据的完整词表目标。
+若 p_g 的指数下溢，不能直接以 0 代替；可从 log p 构造公共缩放后的权重求根，或用更高精度处理该行。
+
+独立的排序解法（用于验证）：
+  先把 gold 单独作为一组，组权重 p_g，均值 s_g。
+  把其他候选按 s_v 降序遍历。
+  若下一个 s_v 大于当前组均值，加入该组，以 p_v 加权更新均值；否则停止。
+  最终均值就是 tau。
+
+五、KKT 最优性证明
+
+将约束写作 q_v-(p_v/p_g)*q_g<=0，对应乘子 alpha_v>=0；归一化乘子为 nu。
+令 alpha_v=max(s_v-tau,0)。
+非 gold 坐标的一阶条件为：
+  log(q_v/qtilde_v)+1+nu+alpha_v=0。
+gold 坐标的一阶条件为：
+  log(q_g/qtilde_g)+1+nu-sum_{v!=g}(p_v/p_g)*alpha_v=0。
+
+令 Z1=sum p_v*exp(w_v)，取 nu=-1-log Z0+log Z1。
+代入 (4)，非 gold 条件化为 w_v-s_v+alpha_v=0，恒成立。
+gold 条件化为 tau-s_g=sum_{v!=g}(p_v/p_g)*alpha_v，即 (3)。
+若 alpha_v>0，则 w_v=tau，从而 q_v=(p_v/p_g)*q_g，互补松弛成立。
+若 alpha_v=0，则 w_v=s_v<=tau，原约束成立。
+因此满足全部 KKT 条件；结合凸性和严格凸目标，(4) 是 (1) 的唯一全局最优解。
+
+六、可证明的保证及其边界
+
+1. 相对原有推理教师，gold 概率不会降低。
+   sum q_v <= q_g*(1+sum_{v!=g}p_v/p_g)=q_g/p_g。
+   因 sum q_v=1，得 Q*_g>=p_g，故 -log Q*_g<=-log p_g。
+   也可由 (4) 看出 Q*_g>=qtilde_g，因为 gold 分数上调而其他分数不增。
+
+2. gold 相对任何候选的概率比不会恶化。
+   Q*_g/Q*_v=(p_g/p_v)*exp(tau-min(s_v,tau))>=p_g/p_v。
+   原教师若以 gold 为唯一 top-1，修正目标仍以 gold 为唯一 top-1。
+   原教师若已经预测错，约束不保证 gold 必然变为 top-1；这是“不恶化约束”，不是让教师完全正确。
+   例如 p=(0.2,0.7,0.1)、所有 s=0 时，Q*=p，gold 仍不是 top-1。
+
+3. 目标仍然是软分布。
+   所有有限分数下 Q*_v>0，不强制变成 one-hot。
+   对未被截到上限的非 gold 候选 v,u：
+     Q*_v/Q*_u=(p_v/p_u)*exp(s_v-s_u)。
+   因此不同候选间的推理差异可以保留。
+   若全部有效分数都被统一，Q* 可能退回 p；不能数学保证真实数据一定保留大量差异信号。
+
+4. 若 beta=0 或 p=r，则 Q*=p；若 s_g 已是最大分数，则 qtilde 已可行，Q*=qtilde。
+
+5. 这些保证只针对固定标准前缀下的目标分布。
+   不保证学生参数更新后的 token 概率、自由生成答案准确率、推理正确性或无推理表现。
+   NLL 改善是构造性质，不可再把它当作方法有效性的独立实验证据。
+   与无推理教师 r 的 gold 概率不存在同样的下限保证；本设计保护的基线是有推理教师 p。
+
+七、接入原损失
+
+保持原完整 assistant CE（含英文推理、边界和答案）以及原有归约方式：
+  L = L_CE
+      + lambda * mean_answer KL(stopgrad Q* || S_plus)
+      + mu * mean_answer KL(stopgrad r  || S_zero)。
+
+Think 样本使用两项辅助损失；no_think 样本保持原 CE。
+S_plus 为学生有完整英文推理的回答分布；S_zero 为完整空 think 块的回答分布。
+现有 49,800 行训练数据、CE-9000 冻结参考和 sft-new2 学生初始化不因本修正改变。
+1000 Think 方法诊断集仍不参与梯度更新。
+当前 beta=0.5,c=2 可作为只改 Q 的第一项诊断设置，lambda=mu=0.1 仍只是先前损失量级示例，尚非验证过的最优训练超参。
+
+无推理分布 r 属于冻结教师，而非正在训练的 S_zero。因此让学生无推理分支变差，不能改变 Q* 来投机降低有推理目标。
+但有限 KL 锚定和共享参数不提供无推理准确率绝对不降的保证。S_zero 起点为 sft-new2，该项还包含向 CE-9000 的普通蒸馏效应。
+
+八、为什么一般不等于标量加权 hard CE
+
+令 z 为学生 logits，S=softmax(z)，Q* 冻结：
+  d KL(Q*||S)/d z_v = S_v-Q*_v。
+  d [-log S_g]/d z_v = S_v-1[v=g]。
+一般不存在一个标量 a，使全部坐标满足 S_v-Q*_v=a*(S_v-1[v=g])。
+合成例子的有限差分检查和非共线性残差见 numerical_verification.json。
+诚实的表述是：forward KL 本来就等价于软标签交叉熵加一个与学生无关的常数；本设计不是摆脱所有 CE，而是修改整个位点的软目标。
+
+与普通教师蒸馏相比，对 gold logit 的额外梯度差为：
+  (S_g-Q*_g)-(S_g-p_g)=p_g-Q*_g<=0。
+在同一个学生状态下，修正目标在该 logit 坐标上不会比普通教师更不利于 gold。
+这不是整个网络参数梯度同向的证明。
+
+不可能同时要求“固定软目标”与“对所有学生状态都不与 hard CE 冲突”：
+  只要 Q*_g<1，总能存在 S_g>Q*_g。
+  此时 KL 的 gold logit 梯度 S_g-Q*_g>0，而 hard CE 的梯度 S_g-1<0。
+  若要对所有 S 都排除这种坐标冲突，只能 Q*_g=1，即退化到 one-hot。
+本设计不作这种不可能的承诺；它解决的是目标构造对正确标签的额外损害。
+
+九、检验是否只剩 gold 置信度提高
+
+经典 KD 可分解为：
+  KL(Q*||S)
+    = KL(Bern(Q*_g)||Bern(S_g))
+      +(1-Q*_g)*KL(Q*_-g || S_-g)，
+其中 -g 表示剔除 gold 后重新归一化的条件分布。
+非 gold 条件分布承载候选间的区别，不能只看 Q*_g。
+
+一个后续有针对性的对照为：
+  B_g=Q*_g，B_v=(1-Q*_g)*p_v/(1-p_g) 对 v!=g。
+该目标与 Q* 的 gold 概率完全相同，但非 gold 之间的关系只来自普通教师。
+比较 B 和 Q* 可以区分“仅提高 gold 置信度”和“额外保留推理差异结构”的作用；不应仅凭 Q* 与 p 的距离断言语义推理利用已经改善。
+合成例子中 B 与 Q* 不同；真实数据是否仍有足够差异需要诊断。
+
+下一轮诊断应记录：约束残差、Q* 与 p 的 TV/KL、Q*=p 的比例、非 gold 条件 KL、熵和非 gold 质量、KL 对初始学生的量级。
+gold NLL 只用于确认构造和实现正确；主实验仍以固定协议下 666DEV 自由生成最终藏文答案的准确率为准。
+推理前缀干预和更详细消融留到主实验之后，不在本设计中增加新阶段。
+
+十、例子与本次 CPU 验证
+
+真实诊断 UID=Math_think_1587018，answer_position=224，g='6'：
+  无推理教师 r(6)=0.9997606277；有推理教师 p(6)=0.5823304057；旧目标 qtilde(6)=0.2813587785。
+  p(5)=0.4170651436；旧目标 qtilde(5)=0.7177161574。
+  新约束保证 Q*(6)>=0.5823304057，且 Q*(6)/Q*(5)>=p(6)/p(5)>1。
+这段是可证明的界，不是声称已重算该真实位置的完整词表 Q*。已保存的 top-5 不足以精确重算完整词表投影。
+
+完整可计算的合成三候选例子，g 为第 1 项：
+  p=(0.60,0.30,0.10)，r=(0.65,0.01,0.34)，beta=0.5,c=2。
+  qtilde=(0.3986100935,0.5638892703,0.0375006362)。
+  Q*=(0.6383589072,0.3191794536,0.0424616391)。
+原增强把第 2 项推到 gold 前面；修正后 gold 恢复领先，而两个非 gold 项之间仍不是原教师的比例。
+这只演示数学性质，不是藏文模型实验结果。
+
+运行：node eval/analysis/gold_constrained_target_design_20261103/verify_projection.cjs
+验证使用确定性随机数种子 20261103、CPU binary64；共 2006 组，含 2000 组随机小词表及 1 组 161280 词表合成分布。
+检查了归一化、gold 概率下限、成对概率比、top-1 保留、KKT 条件、二分与独立排序求解一致性、目标值优于若干可行候选、有限差分梯度。
+全部通过。完整数值、脚本 SHA-256 和范围限制记录在 numerical_verification.json。
+这不是训练集测试、1000 条新诊断结果或 GPU FP32 实现的验证。
+
+十一、检索依据与贡献边界（2026-11-03 实际检索）
+
+[1] Sun et al. Knowledge Distillation with Refined Logits. ICCV 2025.
+https://openaccess.thecvf.com/content/ICCV2025/html/Sun_Knowledge_Distillation_with_Refined_Logits_ICCV_2025_paper.html
+https://arxiv.org/html/2408.07703
+直接相关点：教师错误会使软监督与正确标签冲突；RLD 使用样本置信度和 masked correlation，避免盲目模仿错误教师。
+范围：图像分类；不是本文的概率比约束或 KL 投影，不可引用成已验证藏文或大模型效果。
+
+[2] Liu et al. Crosslingual On-Policy Self-Distillation for Multilingual Reasoning. arXiv, 2026-05-10, preprint.
+https://arxiv.org/abs/2605.09548
+直接相关点：利用含英文信息的教师上下文，提供全词表 token 级跨语言蒸馏监督。
+范围：教师含英文问题翻译和参考解答，学生自己的 rollout；并非当前离线目标修正，也不提供上述 gold 约束证明。
+
+[3] Deshmukh et al. Projected Distillation: On Learning to Solve Hard Problems from Close, Correct Targets. arXiv, 2026-10-20.
+https://arxiv.org/abs/2610.27467
+https://arxiv.org/html/2610.27467
+相关原则：结合正确性与尽量接近原行为的修正。
+范围：对学生整段失败输出做最小文本修订并在线刷新，使用局部偏好目标；不是本设计的 token 概率投影。正文标注两个 NeurIPS 2026 workshop 收录，不应称为 NeurIPS 主会论文。
+
+[4] Ganchev et al. Posterior Regularization for Structured Latent Variable Models. JMLR 2010.
+https://jmlr.org/papers/v11/ganchev10a.html
+https://jmlr.org/papers/volume11/ganchev10a/ganchev10a.pdf
+数学依据：以分布约束定义允许集合，通过 KL 投影获得目标。引用的是一般方法论，不把其 EM 收敛性质移植到本 SFT 训练。
+
+[5] Zhao et al. Decoupled Knowledge Distillation. CVPR 2022.
+https://openaccess.thecvf.com/content/CVPR2022/html/Zhao_Decoupled_Knowledge_Distillation_CVPR_2022_paper.html
+相关点：把经典 KD 分解为目标类别和非目标类别的知识；支持区分 gold 置信度与候选关系。
+
+[6] Lan et al. Improve Knowledge Distillation via Label Revision and Data Selection. arXiv 2024 version.
+https://arxiv.org/html/2404.03693v1
+相关点：用正确 one-hot 标签与教师软标签组合，修正教师监督。说明简单混合标签已有先例。
+
+本轮未找到与“同一藏文输入、英推理前缀差异、逐 gold token 概率比约束、上述闭式结构投影”完全一致的方案；这不构成新颖性证明。
+可将其作为待验证的方法组合。贡献需要与普通教师蒸馏、标签修正等最近对照比较，并由实际答案准确率支持。

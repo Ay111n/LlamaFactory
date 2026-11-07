@@ -1,0 +1,36 @@
+{
+  "id": "mixed_sft_g2_full_49800_20261026",
+  "arm": "Full-G2",
+  "lambda": 0.0012,
+  "seed": 3407,
+  "data_seed": 3407,
+  "dataset_count": 49800,
+  "epochs": 3,
+  "steps": 9339,
+  "required_checkpoints": [
+    1500,
+    3000,
+    4500,
+    6000,
+    7500,
+    9000
+  ],
+  "manual_selection": true,
+  "automatic_best_selection": false,
+  "TEST_used": false,
+  "retrain_standard_CE": false,
+  "other_full_experiments": false,
+  "diagnostic_steps": [
+    0,
+    9339
+  ],
+  "native_backward": "CE and original G2 auxiliary jointly handled by stock LF/HF training_step + Accelerator.backward",
+  "historical_runtime_uncertainty": "strict equality to the recoverable CURRENT native path; exact historical environment not proved",
+  "real_CE_test_rtol": 0.0002,
+  "real_CE_test_atol": 2e-06,
+  "initial_R_p90_gate": [
+    0.001,
+    1.0
+  ],
+  "training_gradient_logging": "every update: scalar components, tokens, Think counts and preclip norm; full vector probes before/after training"
+}

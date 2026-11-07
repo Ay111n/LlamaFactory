@@ -1,0 +1,46 @@
+{
+  "authorized": "User explicitly requested 49,800-row full training using two L20 GPUs with caching and asynchronous prefetch",
+  "student": "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2",
+  "reference": "/home/nlp/data/lyl/model/CE/merged/checkpoint-9000",
+  "fresh_initialization": true,
+  "resume": null,
+  "gpu_roles": {
+    "student": {
+      "index": 1,
+      "uuid": "GPU-5fc7820d-0470-f42a-a5c7-3f3cbfb2df88"
+    },
+    "teacher": {
+      "index": 2,
+      "uuid": "GPU-c98046c2-90b5-a959-9e88-f09a146ee29e"
+    }
+  },
+  "epochs": 3,
+  "expected_optimizer_steps": 9339,
+  "checkpoint_steps": [
+    1500,
+    3000,
+    4500,
+    6000,
+    7500,
+    9000,
+    9339
+  ],
+  "checkpoint_contains_optimizer_scheduler_rng": true,
+  "lambda": 0.1,
+  "mu": 0.1,
+  "beta": 0.5,
+  "cap": 2.0,
+  "reference_dtype": "float32",
+  "student_training": "original BF16 LoRA plus lm_head",
+  "auxiliary_normalization": "per-answer mean, averaged over all samples per accumulation window; no_think contributes zero",
+  "diagnostic_set_updates": false,
+  "automatic_dev_test_evaluation": false,
+  "cache_and_async_prefetch": true,
+  "max_prefetched_samples": 1,
+  "teacher_seconds_metric": "CPU wait for a prepared target, not total teacher GPU compute",
+  "full_training_estimate_hours_from_preflight": 66.02295681446532,
+  "optimization_validation": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/gold_reasoning_throughput_20261103",
+  "optimized_code_sha256": "87d36c58cd492f911955e3f4a50aeee60ea374ddfa4895253a47007077e5a898",
+  "previous_full_run_continued": false,
+  "baseline_config": "/home/nlp/data/lyl/LLaMA-Factory/examples/train_lora/qwen3_mixed_sft_49800_lora_v1.yaml"
+}

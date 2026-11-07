@@ -1,0 +1,42 @@
+{
+  "experiment": "mixed_sft_original_ce_dev_20261028",
+  "source_local": "E:\\毕业论文\\finetuning\\model\\qwen3-8bbo-sft-new2\\lora_adapter\\mixed_sft_final_49800_lora_v1",
+  "steps": [
+    1500,
+    3000,
+    4500,
+    6000,
+    7500,
+    9000
+  ],
+  "selection": [
+    "DEV correct count descending",
+    "natural closure count descending"
+  ],
+  "if_still_tied": "report all tied checkpoints; do not invent extra criterion",
+  "base": "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2",
+  "split": "666 DEV",
+  "max_tokens": 4096,
+  "temperature": 0,
+  "seed": 42,
+  "training": false,
+  "TEST_used": false,
+  "merge_protocol": "same FP32 adapter/lm_head load then merge then BF16 parameter-only casting as Full-G2; no adapter-versus-merged logits gate; retain BF16 save/reload gate",
+  "resource_override": {
+    "timestamp": "2026-10-28T15:30:25.061894+00:00",
+    "authorization": "User permits GPUs with small existing allocations, preserve others processes",
+    "max_existing_used_MiB": 4096,
+    "min_free_MiB": 40960,
+    "max_util_percent": null,
+    "consecutive_samples": 2,
+    "sample_interval_seconds": 20,
+    "vllm_gpu_memory_utilization": 0.75,
+    "historical_gpu_memory_utilization": 0.9,
+    "CPU_niceness": 10,
+    "max_parallel_checkpoints": 6,
+    "external_processes_modified": false,
+    "decoding_settings_changed": false,
+    "compute_contention_possible": true,
+    "utilization_policy": "Prefer lower utilization among cards with low existing memory; do not require idle compute, as explicitly authorized"
+  }
+}

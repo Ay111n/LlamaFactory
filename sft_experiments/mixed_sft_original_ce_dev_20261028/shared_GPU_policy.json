@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-28T15:30:25.061894+00:00",
+  "authorization": "User permits GPUs with small existing allocations, preserve others processes",
+  "max_existing_used_MiB": 4096,
+  "min_free_MiB": 40960,
+  "max_util_percent": null,
+  "consecutive_samples": 2,
+  "sample_interval_seconds": 20,
+  "vllm_gpu_memory_utilization": 0.75,
+  "historical_gpu_memory_utilization": 0.9,
+  "CPU_niceness": 10,
+  "max_parallel_checkpoints": 6,
+  "external_processes_modified": false,
+  "decoding_settings_changed": false,
+  "compute_contention_possible": true,
+  "utilization_policy": "Prefer lower utilization among cards with low existing memory; do not require idle compute, as explicitly authorized"
+}

@@ -1,0 +1,14 @@
+{
+  "candidate_selection": "manual",
+  "evaluate_retained_checkpoints_on_666_DEV": true,
+  "evaluate_now": false,
+  "historical_checkpoint_audit": false,
+  "historical_checkpoint_re_evaluation": false,
+  "automatic_checkpoint_selection": false,
+  "TEST_model_inference": false,
+  "full_training_authorized": false,
+  "future_save_steps": 1500,
+  "future_save_total_limit": 10,
+  "future_max_steps_from_3_epochs": 9339,
+  "future_selection_rule": "list results and let user choose; no automatic best checkpoint"
+}

@@ -53,7 +53,14 @@ def run_sft(
     # dataset_module = get_dataset(template, model_args, data_args, training_args, stage="sft", **tokenizer_module)
     # --- 新增：动态判断阶段 ---
     dataset_stage = "bwsa" if getattr(finetuning_args, "use_bwsa_loss", False) else "sft"
-    dataset_module = get_dataset(template, model_args, data_args, training_args, stage=dataset_stage, **tokenizer_module)
+    if finetuning_args.termination_dataset_path:
+        from datasets import load_from_disk
+
+        if data_args.packing or data_args.cutoff_len != 4096 or data_args.template != "qwen3":
+            raise ValueError("Termination experiment requires unpacked Qwen3 at cutoff_len=4096")
+        dataset_module = {"train_dataset": load_from_disk(finetuning_args.termination_dataset_path)}
+    else:
+        dataset_module = get_dataset(template, model_args, data_args, training_args, stage=dataset_stage, **tokenizer_module)
     model = load_model(tokenizer, model_args, finetuning_args, training_args.do_train)
 
     ref_model = None
@@ -120,7 +127,23 @@ def run_sft(
     gen_kwargs["pad_token_id"] = tokenizer.pad_token_id
 
     # Initialize our Trainer
-    trainer = CustomSeq2SeqTrainer(
+    trainer_class = CustomSeq2SeqTrainer
+    if finetuning_args.termination_dataset_path:
+        from .termination_trainer import BoundaryCollator, TerminationTrainer
+
+        data_collator = BoundaryCollator(data_collator)
+        trainer_class = TerminationTrainer
+        from .termination_gold import GOLD_MODES
+        if finetuning_args.termination_loss_mode in GOLD_MODES:
+            from .gold_termination_trainer import GoldTerminationTrainer
+            trainer_class = GoldTerminationTrainer
+        from .termination_end_ce import END_MODES
+        if finetuning_args.termination_loss_mode in END_MODES:
+            from .end_ce_trainer import EndCETrainer
+            trainer_class = EndCETrainer
+        training_args.remove_unused_columns = False
+
+    trainer = trainer_class(
         model=model,
         args=training_args,
         finetuning_args=finetuning_args,

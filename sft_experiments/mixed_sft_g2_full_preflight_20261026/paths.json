@@ -1,0 +1,19 @@
+{
+  "framework": "/home/nlp/data/lyl/LLaMA-Factory",
+  "engineering": "/home/nlp/data/lyl/LLaMA-Factory/sft_experiments/mixed_sft_g2_full_preflight_20261026",
+  "data": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_g2_full_preflight_20261026",
+  "data_scripts": "/home/nlp/data/lyl/finetuning/sft/scripts/mixed_sft_g2_full_preflight_20261026",
+  "analysis": "/home/nlp/data/lyl/benchmark/eval/analysis/mixed_sft_g2_full_preflight_20261026",
+  "model_output": "/home/nlp/data/lyl/finetuning/model/sft_experiments/mixed_sft_g2_full_49800_20261026",
+  "base": "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2",
+  "yaml": "/home/nlp/data/lyl/LLaMA-Factory/examples/train_lora/qwen3_mixed_sft_49800_lora_v1.yaml",
+  "train": "/home/nlp/data/lyl/LLaMA-Factory/data/mixed_sft_final_49800_sharegpt.jsonl",
+  "provenance": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_dynamic_termination_20261022/source_provenance.jsonl",
+  "small_cache": "/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_dynamic_termination_20261022/prepared/dataset",
+  "dev": "/home/nlp/data/lyl/benchmark/eval/tibetan_formateval_validation/trilingual_aligned/tibetan/mcqa_4way.jsonl",
+  "test": "/home/nlp/data/lyl/benchmark/eval/tibetan_formateval_test/mcqa_4way.jsonl",
+  "training_python": "/opt/anaconda3/envs/training/bin/python",
+  "historical_checkpoint_audit": false,
+  "checkpoint_selection": "manual after listing retained checkpoints on 666 DEV",
+  "formal_training_authorized": false
+}
