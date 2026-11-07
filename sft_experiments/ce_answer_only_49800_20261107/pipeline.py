@@ -63,6 +63,28 @@ def run(command,log,env):
 def stage(value,**extra):
     write(ARTIFACTS/"pipeline.json",{"state":"running","stage":value,"pid":os.getpid(),"time":now(),**extra})
 
+
+def evaluate_checkpoint(evaluator, step, mode, env):
+    stage("cpu_merge",step=step)
+    merge_attempt=len(list(ARTIFACTS.glob(f"merge-{step}-attempt*.log")))+1
+    run([INFERENCE,str(evaluator),"--step",str(step),"--merge-only"],
+        ARTIFACTS/f"merge-{step}-attempt{merge_attempt}.log",dict(env,CUDA_VISIBLE_DEVICES=""))
+    while True:
+        with gpu_lease() as (gpu,uuid):
+            stage("dev_"+mode,step=step,gpu=gpu,gpu_uuid=uuid)
+            attempt=len(list(ARTIFACTS.glob(f"dev-{mode}-{step}-attempt*.log")))+1
+            try:
+                run([INFERENCE,str(evaluator),"--step",str(step),"--mode",mode,"--gpu",str(gpu)],
+                    ARTIFACTS/f"dev-{mode}-{step}-attempt{attempt}.log",dict(env,CUDA_VISIBLE_DEVICES=""))
+                return
+            except subprocess.CalledProcessError as error:
+                if error.returncode!=75:
+                    raise
+                # Only a pre-inference GPU acquisition race is safe to reselect.
+                stage("waiting_for_eval_gpu",step=step,mode=mode)
+        time.sleep(5)
+
+
 def main():
     assert sys.executable==PYTHON
     parser=argparse.ArgumentParser()
@@ -114,18 +136,12 @@ def main():
         evaluator=BENCHMARK/"eval/scripts"/NAME/"workflow.py"
         for step in STEPS:
             if (ANALYSIS/f"on-{step}.json").exists():continue
-            with gpu_lease() as (gpu,uuid):
-                stage("dev_on",step=step,gpu=gpu,gpu_uuid=uuid)
-                run([INFERENCE,str(evaluator),"--step",str(step),"--mode","on","--gpu",str(gpu)],
-                    ARTIFACTS/f"dev-on-{step}.log",dict(env,CUDA_VISIBLE_DEVICES=""))
+            evaluate_checkpoint(evaluator,step,"on",env)
         comparison=read(ANALYSIS/"comparison.json")
         assert comparison["complete_on"]
         best=comparison["best_on"]["a_step"]
         if not (ANALYSIS/f"off-{best}.json").exists():
-            with gpu_lease() as (gpu,uuid):
-                stage("dev_off",step=best,gpu=gpu,gpu_uuid=uuid)
-                run([INFERENCE,str(evaluator),"--step",str(best),"--mode","off","--gpu",str(gpu)],
-                    ARTIFACTS/f"dev-off-{best}.log",dict(env,CUDA_VISIBLE_DEVICES=""))
+            evaluate_checkpoint(evaluator,best,"off",env)
         comparison=read(ANALYSIS/"comparison.json")
         assert "best_off" in comparison
         write(ARTIFACTS/"pipeline.json",{"state":"complete","pid":os.getpid(),"time":now(),
