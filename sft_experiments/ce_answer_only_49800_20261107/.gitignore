@@ -1,0 +1,6 @@
+artifacts/
+data/
+__pycache__/
+*.log
+*.pid
+*.lock
