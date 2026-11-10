@@ -18,7 +18,7 @@ RUN=HERE.name
 DATA=PROJECT/'finetuning/sft/mixed_sft/final_data'/RUN
 CACHE=PROJECT/'finetuning/sft/mixed_sft/processed_data'/RUN
 MODELS=PROJECT/'finetuning/model/sft'/RUN
-RUNTIME=HERE/'runtime'
+RUNTIME=HERE/'runtime_v2'
 PYTHON='/opt/anaconda3/envs/training/bin/python'
 CONDITIONS=['baseline','crossref']
 
@@ -73,7 +73,6 @@ def preflight(model):
     recipe=configs(model)
     details={}; previous_targets=None
     for c,cfg in recipe.items():
-        assert not (CACHE/c).exists()
         write(RUNTIME/(c+'.json'),cfg)
         cpu_cfg={**cfg,'bf16':False,'flash_attn':'disabled','use_cpu':True,'preprocessing_num_workers':1}
         model_args,data_args,training_args,_,_=get_train_args(cpu_cfg)
@@ -81,7 +80,7 @@ def preflight(model):
         template=get_template_and_fix_tokenizer(tokenizer,data_args)
         raw=rows(DATA/(c+'.jsonl'))
         assert len(raw)==4000
-        expected=[];lengths=[];prompts=[]
+        expected=[];expected_inputs=[];lengths=[];prompts=[]
         for r in raw:
             response=r['conversations'][1]['value']
             assert '<think>' not in response and '</think>' not in response
@@ -90,6 +89,7 @@ def preflight(model):
             source,target=template.encode_oneturn(tokenizer,messages,r['system'])
             assert source and target
             expected.append(target)
+            expected_inputs.append(source+target)
             lengths.append(len(source)+len(target))
             prompts.append(len(source))
         assert max(lengths)<=cfg['cutoff_len'],(c,max(lengths))
@@ -99,7 +99,7 @@ def preflight(model):
         for i,row in enumerate(native):
             target=[x for x in row['labels'] if x!=-100]
             assert target==expected[i],(c,i,'native target differs')
-            assert len(row['input_ids'])==lengths[i],(c,i,'input truncated or changed')
+            assert row['input_ids']==expected_inputs[i],(c,i,'native input differs')
             assert row['labels'][:prompts[i]]==[-100]*prompts[i]
             targets.append(target)
         if previous_targets is not None: assert targets==previous_targets
@@ -168,7 +168,7 @@ def run(gpus):
                     'PYTHONPATH':str(FRAMEWORK/'src'),'PYTHONUNBUFFERED':'1',
                     'HF_DATASETS_CACHE':str(CACHE/'hf_cache')})
         logs[c]=(RUNTIME/(c+'.log')).open('ab')
-        p=subprocess.Popen([PYTHON,str(FRAMEWORK/'src/train.py'),str(RUNTIME/(c+'.json'))],
+        p=subprocess.Popen([PYTHON,str(Path(__file__)),'train','--arm',c],
                            stdout=logs[c],stderr=subprocess.STDOUT,env=env,cwd=FRAMEWORK)
         children[c]=p
     write(RUNTIME/'children.json',{c:{'pid':p.pid,'gpu':gpus[i]} for i,(c,p) in enumerate(children.items())})
@@ -211,10 +211,13 @@ def status():
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('command',choices=['preflight','launch','run','status'])
-    p.add_argument('--model',type=Path);p.add_argument('--gpus',type=int,nargs=2)
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['preflight','launch','run','status','train'])
+    p.add_argument('--model',type=Path);p.add_argument('--gpus',type=int,nargs=2);p.add_argument('--arm',choices=CONDITIONS)
     a=p.parse_args()
     if a.command=='preflight':preflight(a.model)
     elif a.command=='launch':launch(a.gpus)
     elif a.command=='run':run(a.gpus)
+    elif a.command=='train':
+        from llamafactory.train.tuner import run_exp
+        run_exp(read(RUNTIME/(a.arm+'.json')))
     else:status()
