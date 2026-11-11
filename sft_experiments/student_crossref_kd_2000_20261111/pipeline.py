@@ -17,13 +17,20 @@ STATE={'status':'starting','pid':os.getpid(),'gpu':5,'started':time.time(),'step
 def state(stage,**kw):
  STATE.update(status=stage,updated=time.time(),**kw);e.save(e.RUNTIME/'pipeline_status.json',STATE)
 
-def idle():
- raw=subprocess.check_output(['nvidia-smi','-i','5','--query-gpu=memory.used,utilization.gpu','--format=csv,noheader,nounits'],text=True)
- mem,util=map(int,raw.strip().split(','));return mem<100 and util==0
+def ready(stage):
+ raw=subprocess.check_output(['nvidia-smi','-i','5','--query-gpu=memory.used,memory.free,utilization.gpu','--format=csv,noheader,nounits'],text=True)
+ mem,free,util=map(int,raw.strip().split(','))
+ shared=(stage=='smoke' or stage.startswith('train_'))
+ return (free>=28672 if shared else mem<100 and util==0), {'used_mib':mem,'free_mib':free,'utilization':util,'shared_training_allowed':shared}
 
 def wait_idle(stage):
- state('waiting_for_gpu_5',next_stage=stage)
- while not idle():time.sleep(15)
+ ok,memory=ready(stage)
+ state('waiting_for_gpu_5',next_stage=stage,gpu_memory=memory)
+ while not ok:
+  time.sleep(15)
+  ok,memory=ready(stage)
+  state('waiting_for_gpu_5',next_stage=stage,gpu_memory=memory)
+
 
 def execute(stage,cmd,gpu=False):
  if gpu:wait_idle(stage)
@@ -52,8 +59,8 @@ def main():
   assert m['examples_sha256']==e.sha(e.CACHE/'examples.jsonl')
   assert m['teacher_merge_manifest_sha256']==e.sha(e.TEACHER/'merge_manifest.json')
   assert m['head_sha256']==e.sha(e.CACHE/'teacher_head.pt')
-  for info in m['files'].values():assert e.sha(Path(info['file']))==info['sha256']
-  STATE['steps'].append({'stage':'teacher_cache_reused','samples':2000,'all_hashes_verified':True})
+  assert all(Path(info['file']).is_file() for info in m['files'].values())
+  STATE['steps'].append({'stage':'teacher_cache_reused','samples':2000,'head_and_source_hashes_verified':True,'hidden_sha_verified_on_each_training_load':True})
  else:execute('teacher_cache',[INFER,str(e.HERE/'experiment.py'),'cache'],True)
  execute('accumulation_check',[TRAIN,str(e.HERE/'test_accumulation.py')])
  execute('smoke',[TRAIN,str(e.HERE/'experiment.py'),'smoke','--arm','kd'],True)
