@@ -5,7 +5,7 @@ from transformers.loss.loss_utils import ForCausalLMLoss
 from memory_ce import memory_ce, install
 from accelerate import init_empty_weights
 from transformers import AutoConfig, Qwen3_5ForConditionalGeneration
-install()
+install(warmup=False)
 config=AutoConfig.from_pretrained('/home/nlp/data/model/LLM/raw/qwen3.5-9b',local_files_only=True)
 with init_empty_weights():
  model=Qwen3_5ForConditionalGeneration(config)
