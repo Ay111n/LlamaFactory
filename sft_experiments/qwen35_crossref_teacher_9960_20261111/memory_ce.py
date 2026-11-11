@@ -42,10 +42,30 @@ def warmup_linear_attention():
     print('FLA forward/backward warmup passed before model loading.',flush=True)
 
 
+def install_loss_only_outputs():
+    # The SFT trainer consumes only loss; prevent Accelerate from casting unused
+    # full-vocabulary logits to FP32. Loss keeps the original autograd graph.
+    from functools import wraps
+    from transformers import Qwen3_5ForConditionalGeneration
+    cls=Qwen3_5ForConditionalGeneration
+    original=cls.forward
+    if getattr(original, '_loss_only_training_outputs', False):
+        return
+    @wraps(original)
+    def forward(self, *args, **kwargs):
+        outputs=original(self, *args, **kwargs)
+        if self.training and kwargs.get('labels') is not None and getattr(outputs, 'loss', None) is not None:
+            return type(outputs)(**{k:v for k,v in outputs.items() if k != 'logits'})
+        return outputs
+    forward._loss_only_training_outputs=True
+    cls.forward=forward
+
+
 def install(warmup=True):
     from transformers.loss.loss_utils import LOSS_MAPPING
     LOSS_MAPPING['ForCausalLM']=memory_ce
     LOSS_MAPPING['ForConditionalGeneration']=memory_ce
+    install_loss_only_outputs()
     print('Response CE: FlashAttention Triton kernel; unchanged shift/mask/reduction.',flush=True)
     if warmup:
         warmup_linear_attention()

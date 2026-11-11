@@ -5,6 +5,8 @@ import teacher
 teacher.verify_preflight()
 smoke=teacher.read(teacher.RUNTIME/'smoke_passed.json')
 assert smoke['status']=='passed'
+assert smoke.get('optimizer_state_and_accumulated_gradients_exercised') is True
+os.environ['PYTORCH_CUDA_ALLOC_CONF']='expandable_segments:True'
 assert smoke['memory_ce_sha256']==teacher.sha(teacher.HERE/'memory_ce.py')
 short=teacher.PROJECT/'tmp_q35'
 assert short.is_symlink() and short.resolve()==(teacher.RUNTIME/'temp').resolve()

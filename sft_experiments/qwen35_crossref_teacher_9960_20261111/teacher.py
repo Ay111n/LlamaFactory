@@ -123,6 +123,7 @@ def preflight(model):
       'cache_files_sha256':cache_hashes,'configs_sha256':config_hashes,
       'recipe_sha256':sha(HERE/'training_recipe.json'),'script_sha256':sha(Path(__file__)),
       'memory_ce_sha256':sha(HERE/'memory_ce.py'),'memory_ce_equivalence_sha256':sha(RUNTIME/'memory_ce_equivalence.json'),
+      'loss_only_output_check_sha256':sha(RUNTIME/'loss_only_output_check.json'),
       'planned_optimizer_steps_per_arm':1246,'training_started':False}
     write(RUNTIME/'preflight.json',result)
     print(json.dumps({'status':'passed','conditions':details},ensure_ascii=False),flush=True)
@@ -131,6 +132,8 @@ def preflight(model):
 def verify_preflight():
     p=read(RUNTIME/'preflight.json')
     assert p['status']=='passed'
+    assert sha(RUNTIME/'loss_only_output_check.json')==p['loss_only_output_check_sha256']
+    assert read(RUNTIME/'loss_only_output_check.json')['status']=='passed'
     assert sha(HERE/'memory_ce.py')==p['memory_ce_sha256']
     assert sha(RUNTIME/'memory_ce_equivalence.json')==p['memory_ce_equivalence_sha256']
     assert read(RUNTIME/'memory_ce_equivalence.json')['status']=='passed'
