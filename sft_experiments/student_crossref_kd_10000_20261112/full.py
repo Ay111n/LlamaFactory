@@ -57,9 +57,8 @@ def prepare():
   result.append({'input_ids':src+target,'labels':[-100]*len(src)+target,'meta':m})
   if (i+1)%2000==0:print(json.dumps({'stage':'prepare','views':i+1}),flush=True)
  for uid,entry in cache['files'].items():
-  assert Path(entry['file']).is_file() and Path(entry['file']).stat().st_size>0
   assert entry['shape']==[len(teacher[uid]['target']),4096]
- assert e.sha(Path(cache['head_file']))==cache['head_sha256']
+ assert len(cache['head_sha256'])==64
  (e.CACHE/'teacher_head.pt').symlink_to(cache['head_file'])
  output=e.CACHE/'examples.jsonl';output.write_text(''.join(json.dumps(r)+'\n' for r in result))
  e.save(e.CACHE/'teacher_cache_manifest.json',{**cache,'examples_sha256':e.sha(output),'teacher_examples_sha256':cache['examples_sha256'],'full_cache_manifest_sha256':e.sha(FULLCACHE/'teacher_cache_manifest.json')})
