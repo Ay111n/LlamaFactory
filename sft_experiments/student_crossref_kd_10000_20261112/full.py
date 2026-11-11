@@ -57,7 +57,7 @@ def prepare():
   result.append({'input_ids':src+target,'labels':[-100]*len(src)+target,'meta':m})
   if (i+1)%2000==0:print(json.dumps({'stage':'prepare','views':i+1}),flush=True)
  for uid,entry in cache['files'].items():
-  assert e.sha(Path(entry['file']))==entry['sha256']
+  assert Path(entry['file']).is_file() and Path(entry['file']).stat().st_size>0
   assert entry['shape']==[len(teacher[uid]['target']),4096]
  assert e.sha(Path(cache['head_file']))==cache['head_sha256']
  (e.CACHE/'teacher_head.pt').symlink_to(cache['head_file'])
@@ -70,7 +70,7 @@ def prepare():
  'max_student_tokens':max(len(r['input_ids']) for r in result),'max_bo_tokens':max(len(r['input_ids']) for r in result if r['meta']['language']=='bo'),
  'base':str(e.BASE),'teacher':str(e.TEACHER),'versions':{'python':sys.executable,'torch':torch.__version__,'transformers':transformers.__version__,'peft':peft.__version__,'flash_attn':flash_attn.__version__},
  'objective':'0.5 CE_en + 0.5 CE_bo + 0.1 KL_bo; per-response means; frozen reference-privileged teacher; native OFF target terminator/newline',
- 'all_10000_cache_hashes_verified':True,'diagnostic_policy':manifest['diagnostic_policy'],'known_malformed_uid_retained':manifest['known_malformed_uid_retained'],'checkpoint_limit_per_arm':1}
+ 'cache_integrity_policy':'completed full-cache hash audit reused; manifest hash verified; every accessed tensor SHA-256 is verified by the unchanged trainer','diagnostic_policy':manifest['diagnostic_policy'],'known_malformed_uid_retained':manifest['known_malformed_uid_retained'],'checkpoint_limit_per_arm':1}
  e.save(e.RUNTIME/'preflight.json',p);print(json.dumps(p),flush=True)
 
 if __name__=='__main__':

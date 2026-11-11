@@ -9,3 +9,4 @@ GPU3 KD and GPU0 baseline share GPUs after >=28GiB free check; allocator capped 
 Longest-example KD smoke must pass before both formal jobs start.
 Only one final recoverable checkpoint per arm, two total in this run.
 Existing pilot GPU5 exclusive evaluation remains untouched.
+Cache integrity: reuse the completed 10k hash audit, verify its manifest, and verify each accessed tensor hash in the trainer; avoid an unnecessary extra 33GiB read before launch.
