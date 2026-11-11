@@ -134,7 +134,7 @@ def cache_teacher():
  emit({'stage':'teacher_cache_complete','seconds':time.time()-started})
 
 
-def train(arm,smoke=False):
+def train(arm,smoke=False,expected_steps=250):
  import torch
  from transformers import TrainerCallback,set_seed
  from transformers.modeling_outputs import CausalLMOutput
@@ -239,7 +239,7 @@ def train(arm,smoke=False):
        'peak_allocated_gib':torch.cuda.max_memory_allocated()/2**30,'seconds':time.time()-started})
  else:
   trainer.save_model();trainer.save_state();trainer.save_metrics('train',out.metrics)
-  assert trainer.state.global_step==250
+  assert trainer.state.global_step==expected_steps
   assert len(list((MODELS/arm).glob('checkpoint-*')))<=1
   save(RUNTIME/(arm+'_complete.json'),{'status':'completed','steps':trainer.state.global_step,'seconds':time.time()-started,
        'adapter_sha256':sha(MODELS/arm/'adapter_model.safetensors'),'initialization_sha256':initial_hash,'metrics':out.metrics})
