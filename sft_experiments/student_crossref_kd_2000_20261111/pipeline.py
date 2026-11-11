@@ -46,7 +46,16 @@ def main():
  assert not (e.RUNTIME/'pipeline_complete.json').exists()
  assert all(not (e.MODELS/a).exists() for a in ['baseline','kd'])
  execute('unit_checks',[TRAIN,str(e.HERE/'test_losses.py')])
- execute('teacher_cache',[INFER,str(e.HERE/'experiment.py'),'cache'],True)
+ cached=e.CACHE/'teacher_cache_manifest.json'
+ if cached.exists():
+  m=e.read(cached);assert m['status']=='completed' and m['samples']==2000
+  assert m['examples_sha256']==e.sha(e.CACHE/'examples.jsonl')
+  assert m['teacher_merge_manifest_sha256']==e.sha(e.TEACHER/'merge_manifest.json')
+  assert m['head_sha256']==e.sha(e.CACHE/'teacher_head.pt')
+  for info in m['files'].values():assert e.sha(Path(info['file']))==info['sha256']
+  STATE['steps'].append({'stage':'teacher_cache_reused','samples':2000,'all_hashes_verified':True})
+ else:execute('teacher_cache',[INFER,str(e.HERE/'experiment.py'),'cache'],True)
+ execute('accumulation_check',[TRAIN,str(e.HERE/'test_accumulation.py')])
  execute('smoke',[TRAIN,str(e.HERE/'experiment.py'),'smoke','--arm','kd'],True)
  assert e.read(e.RUNTIME/'smoke.json')['status']=='passed'
  for arm in ['baseline','kd']:

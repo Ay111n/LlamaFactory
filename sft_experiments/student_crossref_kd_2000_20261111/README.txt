@@ -32,3 +32,5 @@ Numerical tests compare dense CE/KL values and hidden gradients; real smoke
 checks native CE agreement, longest student inputs, finite training and actual
 LoRA update. Both real arms are reset from identical seeds after smoke.
 Runtime artifacts are excluded from Git; results belong under benchmark.
+
+Gradient accumulation: explicit training_step applies exactly one division by the actual window size via Accelerator.backward. CPU Trainer integration checks cover GAS 1, 4, 32 and a partial window. Attempt 01 stopped and archived after detecting duplicate native scaling for this custom-loss path; both final arms restart from the original seed. Cached frozen teacher targets are unchanged.

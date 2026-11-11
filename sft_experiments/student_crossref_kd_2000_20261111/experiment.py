@@ -142,6 +142,7 @@ def train(arm,smoke=False):
  from llamafactory.data import get_template_and_fix_tokenizer
  from llamafactory.train.sft.trainer import CustomSeq2SeqTrainer
  from losses import response_losses
+ from training_step import mean_training_step
  assert Path(sys.executable).resolve()==Path('/opt/anaconda3/envs/training/bin/python').resolve()
  verify();torch.set_num_threads(4);set_seed(SEED)
  tag='smoke' if smoke else arm
@@ -168,6 +169,7 @@ def train(arm,smoke=False):
   return {'input_ids':torch.tensor([r['input_ids']+[tok.pad_token_id]*pad]),
           'attention_mask':torch.tensor([[1]*n+[0]*pad]),'labels':torch.tensor([r['labels']+[-100]*pad]),'meta':r['meta']}
  class PilotTrainer(CustomSeq2SeqTrainer):
+  training_step = mean_training_step
   def __init__(self,**kw):
    super().__init__(**kw);self.model_accepts_loss_kwargs=False;self.window=[]
   def compute_loss(self,model,inputs,return_outputs=False,num_items_in_batch=None,**kwargs):
