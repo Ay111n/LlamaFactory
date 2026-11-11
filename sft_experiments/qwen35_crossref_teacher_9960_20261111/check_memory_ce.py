@@ -2,7 +2,16 @@
 import json,torch
 from pathlib import Path
 from transformers.loss.loss_utils import ForCausalLMLoss
-from memory_ce import memory_ce
+from memory_ce import memory_ce, install
+from accelerate import init_empty_weights
+from transformers import AutoConfig, Qwen3_5ForConditionalGeneration
+install()
+config=AutoConfig.from_pretrained('/home/nlp/data/model/LLM/raw/qwen3.5-9b',local_files_only=True)
+with init_empty_weights():
+ model=Qwen3_5ForConditionalGeneration(config)
+assert model.loss_function is memory_ce, model.loss_type
+binding=dict(model_class=type(model).__name__,loss_type=model.loss_type,actual_bound_function=model.loss_function.__name__)
+del model
 results=[]
 for dtype in [torch.float32,torch.bfloat16]:
  for supplied in [False,True]:
@@ -19,5 +28,5 @@ for dtype in [torch.float32,torch.bfloat16]:
                       loss_abs_error=abs(a.item()-b.item()),gradient_max_abs_error=(x.grad-y.grad).abs().max().item()))
   del x,y,a,b
 p=Path(__file__).parent/'runtime/memory_ce_equivalence.json'
-p.write_text(json.dumps(dict(status='passed',vocabulary=248320,cases=results),indent=2)+'\n')
+p.write_text(json.dumps(dict(status='passed',vocabulary=248320,model_binding=binding,cases=results),indent=2)+'\n')
 print(p.read_text())

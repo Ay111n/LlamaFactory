@@ -18,4 +18,5 @@ def memory_ce(logits, labels, vocab_size, num_items_in_batch=None, ignore_index=
 def install():
     from transformers.loss.loss_utils import LOSS_MAPPING
     LOSS_MAPPING['ForCausalLM']=memory_ce
+    LOSS_MAPPING['ForConditionalGeneration']=memory_ce
     print('Response CE: FlashAttention Triton kernel; unchanged shift/mask/reduction.',flush=True)
