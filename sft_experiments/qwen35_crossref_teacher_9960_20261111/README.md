@@ -1,0 +1,11 @@
+# Qwen3.5-9B reference-assisted Tibetan teacher
+
+Counterpart to the existing sft-new2 teacher, following teacher_backbone_comparison_20261111/README.md. Uses the frozen crossref_teacher_9960_20261111 data in place: 9,960 pairs, 19,920 examples, 2:1:1 tasks, same 40 held-out diagnostic UIDs, verbatim responses and row order. Fresh LoRA, rank 32, alpha 64, dropout .05, all eligible language-model linear layers; visual tower/projector frozen. Two epochs, batch 1 / accumulation 32, seed 3407, lr 5e-5, cosine schedule, warmup .05.
+
+Qwen3.5 native qwen3_5 template with enable_thinking=false. CPU preflight verifies full input/target sequences and response masking through the actual multimodal processor (text-only examples). Longest sequence 14,472; cutoff 16,384 prevents truncation. Token counts and LoRA parameter counts differ across architectures; matched examples/epochs do not imply matched computation.
+
+User approved adding flash-linear-attention==0.4.1 and fla-core==0.4.1 to training; installed with --no-deps, preserving torch 2.6.0 and transformers 5.2.0. smoke.py performs fresh short/longest-example updates on GPU 0; full training starts fresh from the original base after that check. Runtime evidence and configs are ignored; weights/checkpoints belong to finetuning/model/sft/qwen35_crossref_teacher_9960_20261111.
+
+Run teacher.py preflight --model /home/nlp/data/model/LLM/raw/qwen3.5-9b, then smoke.py with CUDA_VISIBLE_DEVICES=0, then launch.py. The launcher verifies the checks and routes temporary/compiler files to the data partition using the short tmp_q35 path; this avoids the full system partition and AF_UNIX path-length limits. queue only accepts idle GPU 0. No distillation. The separate comparison supervisor merges and runs matched reference-assisted OFF diagnostics after both arms complete.
+
+The native full-vocabulary FP32 cross-entropy allocation OOMed on the longest example. memory_ce.py uses the already installed FlashAttention Triton CE kernel with exactly the same shift, ignore mask, and mean/supplied-denominator reduction. Production-vocabulary FP32/BF16 loss and gradient checks are in runtime/memory_ce_equivalence.json. This is a memory implementation change, not a new learning objective. The full run and longest-example check both use this kernel; sft-new2 keeps its original native CE implementation.

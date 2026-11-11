@@ -7,3 +7,5 @@ Starts fresh rank-32 LoRA from sft-new2 with the identical teacher recipe: seed/
 Run baseline.py preflight --model /home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2 under the training Python with framework src on PYTHONPATH, then baseline.py queue. The supervisor accepts only idle GPU 0, rechecks input/cache/model hashes, refuses existing output directories and saves exit/completion status. It does not merge, evaluate, or distill automatically. Subsequent main evaluation uses the registered Tibetan OFF 666DEV protocol.
 
 Runtime evidence is ignored under runtime/; model artifacts remain in finetuning/model/sft/bilingual_baseline_9960_20261111/baseline.
+
+Stopped by explicit user request on 2026-11-11 after latest logged step 220/1246, before the first epoch checkpoint. Runtime user_stop.json records the reason; raw supervisor completion reports the interruption, while queue_status.json records stopped_by_user. Superseded by teacher_backbone_comparison_20261111. No completed model or evaluation is claimed.
