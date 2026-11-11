@@ -37,3 +37,5 @@ Gradient accumulation: explicit training_step applies exactly one division by th
 
 User-approved resource policy: smoke and student training may share GPU 5 when free memory is at least 28672 MiB. DEV waits for idle GPU and retains memory utilization 0.9.
 Cached hidden SHA is checked on every training load; source and head hashes are checked before reuse, avoiding a redundant full hidden scan.
+
+Execution update 2026-11-12: user requested GPU 2 training. Longest-sequence KD update passed there with peak allocated 19.844 GiB while another task occupied 18 GiB. Keep the live baseline on GPU 5; start KD in parallel on GPU 2 with a 23 GiB PyTorch allocator cap and at least 24576 MiB free at launch. CUDA context is additional. Training objective, data, seed and optimizer settings are unchanged. parallel_pipeline.py adopts the baseline without restarting it, prevents duplicate KD launch, and retains exclusive GPU 5 DEV after both arms finish.
