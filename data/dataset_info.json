@@ -792,7 +792,20 @@
     }
   },
   "mixed_sft_final_49800": {
-    "file_name": "mixed_sft_final_49800_sharegpt.jsonl",
+    "file_name": "../../finetuning/sft/mixed_sft/final_data/en_cot_49800_20260919/en_cot_49800_sharegpt.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant"
+    }
+  },
+  "en_cot_49800": {
+    "file_name": "../../finetuning/sft/mixed_sft/final_data/en_cot_49800_20260919/en_cot_49800_sharegpt.jsonl",
     "formatting": "sharegpt",
     "columns": {
       "messages": "messages"

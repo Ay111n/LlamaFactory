@@ -15,7 +15,7 @@ from transformers import AutoTokenizer
 ROOT = Path(__file__).resolve().parent
 LF = ROOT.parent.parent
 BASE = "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2"
-SOURCE = LF / "data/mixed_sft_final_49800_sharegpt.jsonl"
+SOURCE = LF.parent / "finetuning/sft/mixed_sft/final_data/en_cot_49800_20260919/en_cot_49800_sharegpt.jsonl"
 PREVIOUS = Path("/home/nlp/data/lyl/finetuning/sft/processed_data/mixed_sft_g2_full_preflight_20261026")
 DATA = Path("/home/nlp/data/lyl/finetuning/sft/processed_data/gold_reasoning_preflight_20261103")
 EXPECTED_SOURCE = "02d330dfa0b69ad63888d5a50d4ed25b3a135ed980f3498a61bb70c7d55f5b33"

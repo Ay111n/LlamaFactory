@@ -5,7 +5,7 @@ from transformers import AutoTokenizer
 from prepare_data import sha, write, BASE, SOURCE, EXPECTED_SOURCE
 
 ROOT = Path(__file__).resolve().parent
-REFERENCE = Path("/home/nlp/data/lyl/finetuning/model/sft/CE/merged/checkpoint-9000")
+REFERENCE = Path("/home/nlp/data/lyl/finetuning/model/sft/en_cot_49800/merged/checkpoint-9000")
 
 
 def main():

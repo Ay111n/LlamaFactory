@@ -49,7 +49,7 @@ def main():
     empty = tokenizer.encode("<think>\n\n</think>\n\n", add_special_tokens=False)
     output_csv = PROCESSED/"paired_lengths.csv"
     def generate():
-        with (SOURCE/"mixed_sft_final_49800_sharegpt.jsonl").open(encoding="utf-8") as old, \
+        with (SOURCE/"en_cot_49800_sharegpt.jsonl").open(encoding="utf-8") as old, \
              (DATA/"answer_only_49800_sharegpt.jsonl").open(encoding="utf-8") as new, \
              (DATA/"answer_only_49800.jsonl").open(encoding="utf-8") as meta, \
              output_csv.open("w",encoding="utf-8",newline="") as stats:

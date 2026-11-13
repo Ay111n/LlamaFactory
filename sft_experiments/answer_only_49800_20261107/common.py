@@ -1,22 +1,31 @@
 """Fixed paths and atomic experiment records."""
+
+# Resolve historical manifest paths in memory; preserve recorded IDs and hashes.
+import sys as _cot_sys
+from pathlib import Path as _CotPath
+for _cot_parent in _CotPath(__file__).resolve().parents:
+    if (_cot_parent / 'finetuning/scripts/cot_paths.py').is_file():
+        _cot_sys.path.insert(0, str(_cot_parent / 'finetuning/scripts'))
+        break
+from cot_paths import resolve_record as _resolve_cot_record, recorded_hash_matches, recorded_hash_matches
 from datetime import datetime, timezone
 import hashlib
 import json
 import os
 from pathlib import Path
 
-NAME = "ce_answer_only_49800_20261107"
+NAME = "answer_only_49800_20261107"
 THESIS = Path("/home/nlp/data/lyl")
 FRAMEWORK = THESIS / "LLaMA-Factory"
 HERE = Path(__file__).resolve().parent
 ARTIFACTS = HERE / "artifacts"
 DATA = THESIS / "finetuning/sft/mixed_sft/final_data" / NAME
-SOURCE = DATA.parent / "mixed_sft_sampling_20260919_base_tokenizer"
+SOURCE = DATA.parent / "en_cot_49800_20260919"
 PROCESSED = THESIS / "finetuning/sft/mixed_sft/processed_data" / NAME
 MODELS = THESIS / "finetuning/model/sft" / NAME
 BASE = "/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-new2"
 BENCHMARK = THESIS / "benchmark"
-ANALYSIS = BENCHMARK / "eval/analysis" / NAME
+ANALYSIS = BENCHMARK / "eval/analysis/answer_only_vs_en_cot_49800_20261107"
 PYTHON = "/opt/anaconda3/envs/training/bin/python"
 INFERENCE = "/opt/anaconda3/envs/inference/bin/python"
 STEPS = [1500, 3000, 4500, 6000, 7500, 9000, 9339]
@@ -27,7 +36,7 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 def read(path):
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    return _resolve_cot_record(json.loads(Path(path).read_text(encoding="utf-8")))
 
 def sha(path):
     h = hashlib.sha256()

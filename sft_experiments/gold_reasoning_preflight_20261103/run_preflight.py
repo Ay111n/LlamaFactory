@@ -32,7 +32,7 @@ from prepare_data import DATA, SOURCE, EXPECTED_SOURCE, sha, write
 
 ROOT = Path(__file__).resolve().parent
 LF = ROOT.parent.parent
-REF = "/home/nlp/data/lyl/finetuning/model/sft/CE/merged/checkpoint-9000"
+REF = "/home/nlp/data/lyl/finetuning/model/sft/en_cot_49800/merged/checkpoint-9000"
 MODEL_ROOT = Path("/home/nlp/data/lyl/finetuning/model/sft_experiments/gold_reasoning_preflight_20261103")
 ORIGINAL = LF / "examples/train_lora/qwen3_mixed_sft_49800_lora_v1.yaml"
 

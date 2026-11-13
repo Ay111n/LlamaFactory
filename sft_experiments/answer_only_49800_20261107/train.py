@@ -101,12 +101,13 @@ def main():
     assert sys.executable==PYTHON
     if args.phase=="main":
         for filename,expected in read(ARTIFACTS/"source_manifest.json")["files"].items():
-            assert sha(filename)==expected,filename
+            assert recorded_hash_matches(filename, expected),filename
     prepared=read(ARTIFACTS/"prepared.json")
     assert prepared["passed"]
     for relative, expected in prepared["cache_sha256"].items():
         assert sha(PROCESSED/"dataset"/relative)==expected
-    cfg=yaml.safe_load((ARTIFACTS/(args.phase+".yaml")).read_text())
+    from cot_paths import resolve_record
+    cfg=resolve_record(yaml.safe_load((ARTIFACTS/(args.phase+".yaml")).read_text()))
     assert cfg["model_name_or_path"]==BASE and not cfg.get("adapter_name_or_path")
     output=Path(cfg["output_dir"])
     if args.resume:
