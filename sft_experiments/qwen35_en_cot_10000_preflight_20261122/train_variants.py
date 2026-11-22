@@ -87,26 +87,54 @@ def prepare():
                                                exact_loss_masks=True, variants=reports))
 
 
-def train(variant):
+def train(variant, mode):
     report = json.loads((RUNTIME / "preflight.json").read_text())
     assert set(report["variants"]) == set(VARIANTS)
     run_dir = RUNTIME / variant
     config = json.loads((run_dir / "config.json").read_text())
     assert config["output_dir"] == report["variants"][variant]["output_dir"]
-    assert not Path(config["output_dir"]).exists()
+    output = Path(config["output_dir"])
+    callbacks = []
+    if mode == 'resume':
+        from transformers import TrainerCallback
+
+        checkpoint = output / "checkpoint-25"
+        state = json.loads((checkpoint / "trainer_state.json").read_text())
+        assert state["global_step"] == 25 and state["max_steps"] == 625
+        config.update(resume_from_checkpoint=str(checkpoint), save_steps=200, save_total_limit=1)
+        assert config["save_only_model"] is False
+        write_json(run_dir / "resume_config.json", config)
+
+        class ApplySaveInterval(TrainerCallback):
+            def on_train_begin(self, args, state, control, **kwargs):
+                assert state.global_step == 25 and state.max_steps == 625
+                # Trainer reloads the previous interval from trainer_state.json.
+                state.save_steps = int(args.save_steps)
+                print(f"RESUMED step={state.global_step} save_steps={state.save_steps} "
+                      f"save_total_limit={args.save_total_limit}", flush=True)
+
+        callbacks.append(ApplySaveInterval())
+    elif mode == 'fresh':
+        output = output.with_name(output.name + '_fresh')
+        assert not output.exists(), output
+        config.update(output_dir=str(output), save_steps=200, save_total_limit=1)
+        assert config["save_only_model"] is False and not config.get("resume_from_checkpoint")
+        write_json(run_dir / "fresh_config.json", config)
+    else:
+        assert not output.exists(), output
     sys.path.insert(0, str(HERE.parent / "qwen35_crossref_teacher_9960_20261111"))
     from memory_ce import install
     from llamafactory.train.tuner import run_exp
 
     install(warmup=False)
-    run_exp(config)
+    run_exp(config, callbacks=callbacks)
 
 
 if __name__ == "__main__":
     command = sys.argv[1:]
     if command == ["prepare"]:
         prepare()
-    elif len(command) == 2 and command[0] == "train" and command[1] in VARIANTS:
-        train(command[1])
+    elif len(command) == 2 and command[0] in ("train", "resume", "fresh") and command[1] in VARIANTS:
+        train(command[1], mode=command[0])
     else:
-        raise SystemExit("Usage: train_variants.py prepare | train {empty,bo,en}")
+        raise SystemExit("Usage: train_variants.py prepare | {train,resume,fresh} {empty,bo,en}")
