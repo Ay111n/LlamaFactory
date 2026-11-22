@@ -12,7 +12,9 @@ from llamafactory.train.sft.trainer import CustomSeq2SeqTrainer
 from llamafactory.train.tuner import run_exp
 
 here=Path(__file__).resolve().parent
-runtime=here/'runtime'
+paired=len(sys.argv)==2
+runtime=here/('runtime_mb2' if paired else 'runtime')
+fixed=json.loads(Path(sys.argv[1]).read_text()) if paired else None
 cfg=json.loads((here/'recipe.json').read_text())
 source=Path(cfg['dataset_dir'])/'en_cot_10000.jsonl'
 manifest=json.loads((source.parent/'manifest.json').read_text())
@@ -57,12 +59,24 @@ for k in range(n):
     b=Full[k*10000//n:(k+1)*10000//n]
     mu=statistics.mean(lengths[i] for i in b)
     selected.append(min(b,key=lambda i:(abs(lengths[i]-mu),uids[i])))
-steps=4
+steps=5 if paired else 4
+batch=2 if paired else 1
+micro_steps=n//batch
 per_step=sum(lengths[i] for i in selected)
-save('selection.json',{'uids':[uids[i] for i in selected],'lengths':[lengths[i] for i in selected],'tokens_per_step':per_step})
+if paired:
+    assert [uids[i] for i in selected]==fixed['uids']
+    assert [lengths[i] for i in selected]==fixed['lengths']
+    assert per_step==fixed['tokens_per_step']
+longest=Full[-2:] if paired else []
+schedule=selected*4+longest*micro_steps
+expected={i:(data[i]['input_ids'],data[i]['labels']) for i in set(schedule)}
+save('selection.json',{'uids':[uids[i] for i in selected],'lengths':[lengths[i] for i in selected],
+     'tokens_per_step':per_step,'supervised_per_step':sum(expected[i][1].count(-100)*-1+lengths[i] for i in selected),
+     'longest':[{'uid':uids[i],'tokens':lengths[i]} for i in longest]})
 cache=runtime/'encoded_probe'
-DatasetDict(train=data.select(selected*steps)).save_to_disk(str(cache))
+DatasetDict(train=data.select(schedule)).save_to_disk(str(cache))
 cfg.update(tokenized_path=str(cache),output_dir=str(runtime/'trainer'),max_steps=steps,
+           per_device_train_batch_size=batch,gradient_accumulation_steps=micro_steps,
            save_strategy='no',save_only_model=True,disable_tqdm=True,plot_loss=False,learning_rate=0.)
 cfg.pop('save_steps',None)
 save('probe_config.json',cfg)
@@ -73,10 +87,17 @@ CustomSeq2SeqTrainer.save_model=lambda *a,**k:None
 CustomSeq2SeqTrainer._get_train_sampler=lambda self,*a,**k:SequentialSampler(self.train_dataset)
 orig=CustomSeq2SeqTrainer.training_step
 done=[]
+batch_counts=[]
 def track(self,model,inputs,*args,**kwargs):
-    i=selected[len(done)%n]
-    assert int(inputs['attention_mask'].sum().item())==lengths[i]
-    assert torch.all(inputs['labels'][inputs['attention_mask']==0]==-100)
+    offset=len(done)*batch
+    indices=schedule[offset:offset+batch]
+    ids, labels, mask=(inputs[key].detach().cpu() for key in ('input_ids','labels','attention_mask'))
+    for j,i in enumerate(indices):
+        active=mask[j].bool()
+        assert ids[j,active].tolist()==expected[i][0],uids[i]
+        assert labels[j,active].tolist()==expected[i][1],uids[i]
+        assert torch.all(labels[j,~active]==-100),uids[i]
+    batch_counts.append((int(mask.sum()),int((labels!=-100).sum()),mask.numel()))
     v=orig(self,model,inputs,*args,**kwargs)
     done.append(v.detach())
     return v
@@ -91,21 +112,25 @@ class Time(TrainerCallback):
     def on_step_end(self,args,state,control,**kw):
         torch.cuda.synchronize()
         sec=time.perf_counter()-self.start
-        losses=done[-n:]
-        assert len(losses)==n and all(math.isfinite(float(v)) for v in losses)
-        row=dict(step=state.global_step,seconds=sec,tokens=per_step,loss=sum(map(float,losses)),
+        losses=done[-micro_steps:]
+        counts=batch_counts[-micro_steps:]
+        longest_test=paired and state.global_step==steps
+        assert len(losses)==micro_steps and all(math.isfinite(float(v)) for v in losses)
+        row=dict(step=state.global_step,seconds=sec,tokens=sum(c[0] for c in counts),supervised_tokens=sum(c[1] for c in counts),
+             padded_tokens=sum(c[2]-c[0] for c in counts),longest_test=longest_test,loss=sum(map(float,losses)),
              peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30)
         records.append(row)
         save('steps.json',records)
         print('PROBE_STEP',json.dumps(row),flush=True)
 run_exp(cfg,callbacks=[Time()])
-assert len(records)==steps and len(done)==steps*n
-rates=[per_step/r['seconds'] for r in records[1:]]
+assert len(records)==steps and len(done)==steps*micro_steps
+rates=[per_step/r['seconds'] for r in records[1:4]]
 result=dict(steady_tokens_per_second=rates,median_rate=statistics.median(rates),
             projected_hours=sum(lengths)/statistics.median(rates)/3600,
             observed_hours_range=[sum(lengths)/max(rates)/3600,sum(lengths)/min(rates)/3600],
             peak_allocated_gib=max(r['peak_allocated_gib'] for r in records),
             peak_reserved_gib=max(r['peak_reserved_gib'] for r in records),
+            longest_test=records[-1] if paired else None,
             official_training_started=False)
 save('result.json',result)
 print('RESULT',json.dumps(result),flush=True)
