@@ -1,4 +1,4 @@
-"""Resume English-CoT LoRA at the completed first epoch for two more epochs."""
+"""Resume a matched CoT LoRA variant for two more epochs."""
 import json
 import math
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 from transformers import TrainerCallback
 
 HERE = Path(__file__).resolve().parent
-RUN = HERE / "runtime_three/en"
+VARIANTS = ("empty", "bo", "en")
 START_STEP = 625
 END_STEP = 1875
 WARMUP = 32
@@ -42,13 +42,14 @@ class ContinuationSchedule(TrainerCallback):
               f"continuation_warmup={WARMUP} peak_lr={args.learning_rate}", flush=True)
 
 
-def main():
-    config = json.loads((RUN / "fresh_config.json").read_text())
+def main(variant):
+    run = HERE / "runtime_three" / variant
+    config = json.loads((run / "fresh_config.json").read_text())
     output = Path(config["output_dir"])
     checkpoint = output / "checkpoint-625"
     state = json.loads((checkpoint / "trainer_state.json").read_text())
     assert state["global_step"] == state["max_steps"] == START_STEP and state["epoch"] == 1.0
-    assert config["dataset"] == "en_cot_10000" and config["cutoff_len"] == 8192
+    assert config["dataset"] == f"{variant}_cot_10000" and config["cutoff_len"] == 8192
     assert config["per_device_train_batch_size"] == 1 and config["gradient_accumulation_steps"] == 16
     assert config["save_steps"] == 200 and config["save_total_limit"] == 1 and not config["save_only_model"]
     assert Path(config["tokenized_path"]).is_dir()
@@ -56,10 +57,10 @@ def main():
     for filename in ("optimizer.pt", "scheduler.pt", "rng_state.pth"):
         with zipfile.ZipFile(checkpoint / filename) as archive:
             assert archive.infolist()
-    destination = output.with_name("qwen35_en_cot_10000_8192_epoch3")
+    destination = output.with_name(f"qwen35_{variant}_cot_10000_8192_epoch3")
     assert not destination.exists(), destination
     config.update(output_dir=str(destination), resume_from_checkpoint=str(checkpoint), num_train_epochs=3)
-    (RUN / "epoch3_config.json").write_text(json.dumps(config, indent=2) + "\n")
+    (run / "epoch3_config.json").write_text(json.dumps(config, indent=2) + "\n")
     sys.path.insert(0, str(HERE.parent / "qwen35_crossref_teacher_9960_20261111"))
     from memory_ce import install
     from llamafactory.train.tuner import run_exp
@@ -70,9 +71,11 @@ def main():
     assert end["epoch"] == 3.0 and end["global_step"] == end["max_steps"] == END_STEP
     for filename in ("adapter_model.safetensors", "optimizer.pt", "scheduler.pt", "rng_state.pth"):
         assert (final / filename).stat().st_size > 0
-    (RUN / "epoch3_completion.json").write_text(json.dumps(
+    (run / "epoch3_completion.json").write_text(json.dumps(
         dict(checkpoint=str(final), epoch=end["epoch"], global_step=end["global_step"]), indent=2) + "\n")
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 2 or (len(sys.argv) == 2 and sys.argv[1] not in VARIANTS):
+        raise SystemExit("Expected one of: empty, bo, en")
+    main(sys.argv[1] if len(sys.argv) == 2 else "en")
