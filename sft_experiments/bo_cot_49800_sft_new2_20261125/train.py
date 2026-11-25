@@ -31,7 +31,7 @@ CFG = dict(model_name_or_path="/home/nlp/data/model/LLM/merged/qwen3-8bbo-sft-ne
     per_device_train_batch_size=1, gradient_accumulation_steps=16, learning_rate=1e-4,
     num_train_epochs=3, warmup_ratio=0.05, lr_scheduler_type="cosine", bf16=True,
     gradient_checkpointing=True, flash_attn="fa2", seed=3407, data_seed=3407,
-    save_strategy="steps", save_steps=1500, save_total_limit=2, save_only_model=False,
+    save_strategy="steps", save_steps=3000, save_total_limit=1, save_only_model=False,
     logging_steps=10, report_to="none", plot_loss=True)
 
 
@@ -107,11 +107,20 @@ def prepare():
 
 
 class Verify(TrainerCallback):
-    def __init__(self, total):
-        self.total=total
-    def on_train_begin(self,args,state,control,**kwargs):
-        assert state.max_steps==self.total,(state.max_steps,self.total)
-        print("TRAINING_VERIFIED_STEPS",state.max_steps,flush=True)
+    def __init__(self, total, resume_step=None):
+        self.total = total
+        self.resume_step = resume_step
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        assert state.max_steps == self.total, (state.max_steps, self.total)
+        if self.resume_step is not None:
+            assert state.global_step == self.resume_step, state.global_step
+            # Transformers restores the old cadence from trainer_state.json.
+            state.save_steps = args.save_steps
+            assert state.save_steps == 3000 and args.save_total_limit == 1
+            print(f"RESUME_VERIFIED step={state.global_step} save_steps={state.save_steps} "
+                  f"save_total_limit={args.save_total_limit}", flush=True)
+        print("TRAINING_VERIFIED_STEPS", state.max_steps, flush=True)
     def on_log(self,args,state,control,logs=None,**kwargs):
         if logs and "loss" in logs:
             assert math.isfinite(logs["loss"])
@@ -132,13 +141,26 @@ def smoke():
                            peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30))
 
 
-def train():
-    assert (R/"smoke.json").is_file() and not OUTPUT.exists()
-    run_exp(json.loads((R/"config.json").read_text()),callbacks=[Verify(9339)])
-    for step in (9000,9339):
-        assert json.loads((OUTPUT/f"checkpoint-{step}/trainer_state.json").read_text())["global_step"]==step
-    save("completion.json",{"steps":9339,"epoch":3,"output":str(OUTPUT)})
+def train(resume_from=None):
+    assert (R / "smoke.json").is_file()
+    config = json.loads((R / "config.json").read_text())
+    config.update(save_steps=CFG["save_steps"], save_total_limit=CFG["save_total_limit"])
+    resume_step = None
+    if resume_from is None:
+        assert not OUTPUT.exists()
+    else:
+        checkpoint = Path(resume_from).resolve(strict=True)
+        assert checkpoint.parent == OUTPUT and checkpoint.is_dir()
+        state = json.loads((checkpoint / "trainer_state.json").read_text())
+        resume_step = state["global_step"]
+        assert checkpoint.name == f"checkpoint-{resume_step}" and state["max_steps"] == 9339
+        config["resume_from_checkpoint"] = str(checkpoint)
+        save("resume_config.json", config)
+    run_exp(config, callbacks=[Verify(9339, resume_step)])
+    final = json.loads((OUTPUT / "checkpoint-9339" / "trainer_state.json").read_text())
+    assert final["global_step"] == 9339
+    save("completion.json", {"steps": 9339, "epoch": 3, "output": str(OUTPUT)})
 
 
-if __name__=="__main__":
-    {"prepare":prepare,"smoke":smoke,"train":train}[sys.argv[1]]()
+if __name__ == "__main__":
+    {"prepare": prepare, "smoke": smoke, "train": train}[sys.argv[1]](*sys.argv[2:])
